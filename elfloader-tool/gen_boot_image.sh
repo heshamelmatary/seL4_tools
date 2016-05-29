@@ -64,7 +64,11 @@ case "$PLAT" in
         ENTRY_ADDR=0x82008000;
         FORMAT=elf32-littlearm
         ;;
-    "imx31"|"omap3"|"am335x")
+    "spike")
+        ENTRY_ADDR=0x0000000000000000;
+        FORMAT=elf64-littleriscv
+        ;;
+    "imx31"|"omap3"|"am335x"|"omap4")
         ENTRY_ADDR=0x82000000
         FORMAT=elf32-littlearm
         ;;
@@ -165,11 +169,9 @@ if [ "${HASH}" = "y" ]; then
 fi
 
 pushd "${TEMP_DIR}/cpio" &>/dev/null
-if [ "${HASH}" = "y" ]; then
-    printf "kernel.elf\n$(basename ${USER_IMAGE})\nkernel.bin\napp.bin" | cpio --quiet -o -H newc > ${TEMP_DIR}/archive.cpio
-else
-    printf "kernel.elf\n$(basename ${USER_IMAGE})" | cpio --quiet -o -H newc > ${TEMP_DIR}/archive.cpio
-fi
+printf "kernel.elf\ndummypayload\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
+#printf "kernel.elf\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
+
 # Strip CPIO metadata if possible.
 which cpio-strip >/dev/null 2>/dev/null
 if [ $? -eq 0 ]; then
