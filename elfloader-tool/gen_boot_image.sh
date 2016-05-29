@@ -53,6 +53,10 @@ case "$PLAT" in
         ENTRY_ADDR=0x82008000;
         FORMAT=elf32-littlearm
         ;;
+    "spike")
+        ENTRY_ADDR=0x0000000000000000;
+        FORMAT=elf64-littleriscv
+        ;;
     "imx31"|"omap3"|"am335x"|"omap4")
         ENTRY_ADDR=0x82000000
         FORMAT=elf32-littlearm
@@ -116,8 +120,12 @@ cp -f ${KERNEL_IMAGE} ${TEMP_DIR}/cpio/kernel.elf
 cp -f ${USER_IMAGE} ${TEMP_DIR}/cpio
 ${TOOLPREFIX}strip --strip-all ${TEMP_DIR}/cpio/*
 
+dd if=/dev/urandom of=dummypayload bs=8 count=1
+cp dummypayload ${TEMP_DIR}/cpio
+
 pushd "${TEMP_DIR}/cpio" &>/dev/null
-printf "kernel.elf\n$(basename ${USER_IMAGE})\n" | cpio --quiet -o -H newc > ${TEMP_DIR}/archive.cpio
+printf "kernel.elf\ndummypayload\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
+#printf "kernel.elf\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
 
 # Strip CPIO metadata if possible.
 which cpio-strip >/dev/null 2>/dev/null
@@ -154,7 +162,7 @@ ${TOOLPREFIX}ld -T "${SCRIPT_DIR}/linker.lds_pp" \
         "${SCRIPT_DIR}/elfloader.o" "${TEMP_DIR}/archive.o" \
         -Ttext=${ENTRY_ADDR} -o "${OUTPUT_FILE}" \
         || fail
-${TOOLPREFIX}strip --strip-all ${OUTPUT_FILE}
+#${TOOLPREFIX}strip --strip-all ${OUTPUT_FILE}
 
 #
 # Remove ELF stuff to have an PE32+/COFF executable file.
