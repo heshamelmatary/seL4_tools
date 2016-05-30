@@ -188,7 +188,7 @@ popd &>/dev/null
 #
 pushd "${TEMP_DIR}" >/dev/null
 ${TOOLPREFIX}ld -T "${SCRIPT_DIR}/archive.bin.lds" \
-        --oformat ${FORMAT} -r -b binary archive.cpio \
+        --oformat ${FORMAT} -b binary archive.cpio \
         -o "${TEMP_DIR}/archive.o" || fail
 popd >/dev/null
 
