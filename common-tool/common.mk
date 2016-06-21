@@ -76,8 +76,11 @@ CONFIG_USER_CFLAGS:=$(patsubst %",%,$(patsubst "%,%,${CONFIG_USER_CFLAGS}))
 # However we cannot use these when performing link time optimisations.
 # We define these as variables here such that they can be overridden
 # if LTO is enabled
-STARTGROUP := -Wl,--start-group
-ENDGROUP := -Wl,--end-group
+#STARTGROUP := -Wl,--start-group
+#ENDGROUP := -Wl,--end-group
+
+STARTGROUP :=
+ENDGROUP :=
 
 ifeq (${CONFIG_USER_CFLAGS},)
     CFLAGS += $(WARNINGS:%=-W%) -nostdinc -std=gnu11
@@ -160,8 +163,8 @@ OBJFILES = $(ASMFILES:%.S=%.o) $(CFILES:%.c=%.o) $(CXXFILES:%.cxx=%.o) $(OFILES)
 
 # Define standard crt files if are building against a C library that has them
 ifeq (${CONFIG_HAVE_CRT},y)
-	CRTOBJFILES ?= $(SEL4_LIBDIR)/crt1.o $(SEL4_LIBDIR)/crti.o $(shell $(CC) $(CFLAGS) $(CPPFLAGS) -print-file-name=crtbegin.o)
-	FINOBJFILES ?= $(shell $(CC) $(CFLAGS) $(CPPFLAGS) -print-file-name=crtend.o) $(SEL4_LIBDIR)/crtn.o
+	#CRTOBJFILES ?= $(SEL4_LIBDIR)/crt1.o $(SEL4_LIBDIR)/crti.o $(shell $(CC) $(CFLAGS) $(CPPFLAGS) -print-file-name=crtbegin.o)
+	#FINOBJFILES ?= $(shell $(CC) $(CFLAGS) $(CPPFLAGS) -print-file-name=crtend.o) $(SEL4_LIBDIR)/crtn.o
 else
 	CRTOBJFILES ?=
 	FINOBJFILES ?=

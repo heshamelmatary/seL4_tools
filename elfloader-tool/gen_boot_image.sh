@@ -118,13 +118,13 @@ fail() {
 mkdir -p "${TEMP_DIR}/cpio"
 cp -f ${KERNEL_IMAGE} ${TEMP_DIR}/cpio/kernel.elf
 cp -f ${USER_IMAGE} ${TEMP_DIR}/cpio
-${TOOLPREFIX}strip --strip-all ${TEMP_DIR}/cpio/*
+#${TOOLPREFIX}strip --strip-all ${TEMP_DIR}/cpio/*
 
 dd if=/dev/urandom of=dummypayload bs=8 count=1
 cp dummypayload ${TEMP_DIR}/cpio
 
 pushd "${TEMP_DIR}/cpio" &>/dev/null
-printf "kernel.elf\ndummypayload\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
+printf "kernel.elf\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
 #printf "kernel.elf\n$(basename ${USER_IMAGE})\n" | cpio --quiet --block-size=8 --io-size=8 -o -H newc > ${TEMP_DIR}/archive.cpio
 
 # Strip CPIO metadata if possible.
