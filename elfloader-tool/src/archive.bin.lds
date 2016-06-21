@@ -10,8 +10,12 @@
  * @TAG(DATA61_GPL)
  */
 
+OUTPUT_ARCH( "riscv" )
+OUTPUT_FORMAT("elf64-littleriscv")
+
 SECTIONS
 {
+    . = ALIGN(8);
     .archive_ar :
     {
         *(.data)

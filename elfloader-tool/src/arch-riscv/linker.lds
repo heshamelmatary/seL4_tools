@@ -21,10 +21,9 @@ SECTIONS
 
   /* Begining of code and text segment */
   . = 0;
-/*  _start = .;
   _ftext = .;
   PROVIDE( eprol = . );
-*/
+
 
   /* text: Program code section */
   .text : 
@@ -32,8 +31,6 @@ SECTIONS
     *(.text.init)
     *(.text.start)
     *(.text)
-    *(.text.*)
-    *(.gnu.linkonce.t.*)
   }
 
   .sbi :
@@ -41,17 +38,36 @@ SECTIONS
     *(.sbi)
   }
 
+  /* rodata: Read-only data */
+  .rodata : 
+  {
+    *(.rodata)
+    *(.rodata.*)
+      
+    . = ALIGN(8);
+    . = . + 4;
+    _archive_start = .;
+      *(.archive_ar) 
+    _archive_end = .;
+  }
+
+  /* End of code and read-only segment */
+  PROVIDE( etext = . );
+  _etext = .;
+
+  /*--------------------------------------------------------------------*/
+  /* Initialized data segment                                           */
+  /*--------------------------------------------------------------------*/
+
+  /* Start of initialized data segment */
+  . = ALIGN(16);
+   _fdata = .;
+
   /* data: Writable data */
   .data : 
   {
     *(.data)
     *(.data.*)
-    *(.srodata*)
-    *(.gnu.linkonce.d.*)
-    *(.comment)
-    . = ALIGN(16K);
-    _sbi_pt_ld = .;
-    . = . + 32K;
   }
 
   /* End of initialized data segment */
@@ -76,38 +92,7 @@ SECTIONS
   .bss : 
   {
     *(.bss)
-    *(.bss.*)
-    *(.sbss*)
-    *(.gnu.linkonce.b.*)
-    *(COMMON)
-  }
-  /* rodata: Read-only data */
-  .rodata : 
-  {
-    *(.rdata)
-    *(.rodata)
-    *(.rodata.*)
-    *(.gnu.linkonce.r.*)
-    . = ALIGN(28);
-    . = . + 4;
-    _archive_start = .;
-    *(.archive_ar)
-    _archive_end = .;
   }
 
-  /* End of code and read-only segment */
-  PROVIDE( etext = . );
-  _etext = .;
-
-  /*--------------------------------------------------------------------*/
-  /* Initialized data segment                                           */
-  /*--------------------------------------------------------------------*/
-
-  /* Start of initialized data segment */
-  . = ALIGN(16);
-   _fdata = .;
-
-
-  .  = ALIGN(8);
-  _end = .;
+_end = .;
 }
