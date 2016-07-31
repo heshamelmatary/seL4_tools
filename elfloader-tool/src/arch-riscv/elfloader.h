@@ -45,7 +45,7 @@ struct image_info {
      *
      *  virtual_address + phys_virt_offset = physical_address
      */
-    uint32_t phys_virt_offset;
+    uint64_t phys_virt_offset;
 };
 
 /* Enable the mmu. */
