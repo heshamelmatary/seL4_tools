@@ -56,9 +56,13 @@ void misaligned_store_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
 {
   union byte_array val;
   uintptr_t mstatus;
+  uintptr_t mbadaddr;
   insn_t insn = get_insn(mepc, &mstatus);
   int len;
 
+  asm volatile ("csrr %0, mbadaddr\n" : "=r"(mbadaddr) ::);
+  printf("misaligned_store_trap\n");
+  printf("mbadaddr = %p\n", mbadaddr);
   val.intx = GET_RS2(insn, regs);
   if ((insn & MASK_SW) == MATCH_SW)
     len = 4;

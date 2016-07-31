@@ -145,6 +145,7 @@ map_kernel_window(struct image_info *kernel_info)
    */ 
    l1pt[0] =  PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
   
+   printf("kernel_info->phys_region_start = %p\n", kernel_info->phys_region_start);
    for(i = 0; i < 8; i++)
      l2pt_elfloader[i] = PTE64_CREATE((uint64_t)(i << PTE64_PPN1_SHIFT), PTE_TYPE_SRWX);
   
@@ -196,6 +197,7 @@ regions_overlap(uint32_t startA, uint32_t endA,
 static void ensure_phys_range_valid(paddr_t paddr_min, paddr_t paddr_max)
 {
     /* Ensure that the kernel physical load address doesn't overwrite us. */
+    printf("paddr_min = %p\n paddr_max = %p\n, start = %p\n end = %p\n", paddr_min, paddr_max, _start, _end);
     if (regions_overlap(paddr_min, paddr_max - 1,
         //                (uint64_t)_start, (uint64_t)_end - 1)) {
                         (uint64_t)_start, (uint64_t)_end - 1)) {
@@ -207,17 +209,17 @@ static void ensure_phys_range_valid(paddr_t paddr_min, paddr_t paddr_max)
 /*
  * Unpack an ELF file to the given physical address.
  */
-static void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
+void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
 {
     uint64_t min_vaddr, max_vaddr;
     uint32_t image_size;
-    uint32_t phys_virt_offset;
+    uint64_t phys_virt_offset;
     int i;
 
     /* Get size of the image. */
     elf_getMemoryBounds(elf, 0, &min_vaddr, &max_vaddr);
     image_size = (uint64_t)(max_vaddr - min_vaddr);
-    phys_virt_offset = (uint64_t)dest_paddr - (uint32_t)min_vaddr;
+    phys_virt_offset = dest_paddr - min_vaddr;
 
     printf("dest_paddr = %p  image_size = %lu\n", dest_paddr, image_size);
     /* Zero out all memory in the region, as the ELF file may be sparse. */
@@ -238,6 +240,7 @@ static void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
         data_size = elf_getProgramHeaderFileSize(elf, i);
         data_offset = elf_getProgramHeaderOffset(elf, i);
 
+        printf("Loading data into physical memory = %p\n", dest_vaddr - phys_virt_offset);
         /* Load data into memory. */
         memcpy((char *)dest_vaddr + phys_virt_offset,
                (char *)elf + data_offset, data_size);
@@ -354,8 +357,8 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     printf("&kernel_phys_end = %p\n", kernel_phys_end);
 
-    kernel_phys_end = 0xa00000 + kernel_phys_end - kernel_phys_start;
-    kernel_phys_start = 0xa00000;
+    kernel_phys_end = 0x0000000080000000ull + kernel_phys_end - kernel_phys_start;
+    kernel_phys_start = 0x0000000080000000ull;
     
     next_phys_addr = load_elf("kernel", kernel_elf,
                               (paddr_t)kernel_phys_start, kernel_info);
