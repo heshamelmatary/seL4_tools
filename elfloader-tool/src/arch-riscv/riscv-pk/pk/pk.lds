@@ -10,7 +10,7 @@ SECTIONS
   /*--------------------------------------------------------------------*/
 
   /* Begining of code and text segment */
-  . = 0;
+  . = 0x80000000;
   _ftext = .;
   PROVIDE( eprol = . );
 
@@ -39,6 +39,16 @@ SECTIONS
   /* End of code and read-only segment */
   PROVIDE( etext = . );
   _etext = .;
+
+  /*--------------------------------------------------------------------*/
+  /* HTIF, isolated onto separate page                                  */
+  /*--------------------------------------------------------------------*/
+  . = ALIGN(0x1000);
+  htif :
+  {
+    *(htif)
+  }
+  . = ALIGN(0x1000);
 
   /*--------------------------------------------------------------------*/
   /* Initialized data segment                                           */

@@ -25,6 +25,7 @@ TARGETS := elfloader.o
 CFILES   := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/bbl/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/softfloat/*.c))
+CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/util/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/elf/*.c))
 ASMFILES := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/mentry.S))
 ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/*.S))
@@ -65,7 +66,7 @@ INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/pk/
 LIBS = cpio
 
 NK_CFLAGS += -ffreestanding -Wall -W
-NK_CFLAGS += -m64
+NK_CFLAGS +=
 
 include $(SEL4_COMMON)/common.mk
 

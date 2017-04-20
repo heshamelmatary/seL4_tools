@@ -18,10 +18,10 @@ trap_table:
   .word mcall_trap
   .word bad_trap
   .word bad_trap
-#define HTIF_INTERRUPT_VECTOR 12
-  .word htif_interrupt
-#define SOFTWARE_INTERRUPT_VECTOR 13
+#define SOFTWARE_INTERRUPT_VECTOR 12
   .word software_interrupt
+#define TIMER_INTERRUPT_VECTOR 13
+  .word timer_interrupt
 #define TRAP_FROM_MACHINE_MODE_VECTOR 14
   .word __trap_from_machine_mode
 
@@ -54,31 +54,22 @@ trap_vector:
   # Is it a machine timer interrupt?
   li a0, IRQ_M_TIMER * 2
   bne a0, a1, 1f
-  # Yes.  Post a supervisor timer interrupt.
-  li a0, MIP_MTIP
-  csrc mie, a0
-  li a0, MIP_STIP
-  csrs mip, a0
+  li a1, TIMER_INTERRUPT_VECTOR
+  j .Lhandle_trap_in_machine_mode
 
-.Leret:
+.Lmret:
   # Go back whence we came.
   LOAD a0, 10*REGBYTES(sp)
   LOAD a1, 11*REGBYTES(sp)
   csrrw sp, mscratch, sp
-  eret
+  mret
 
 1:
   # Is it an IPI?
   li a0, IRQ_M_SOFT * 2
-  bne a0, a1, 1f
+  bne a0, a1, .Lunhandleable_trap
   li a1, SOFTWARE_INTERRUPT_VECTOR
   j .Lhandle_trap_in_machine_mode
-
-1:
-  # By process of elimination, it must be an HTIF interrupt.
-  li a0, IRQ_HOST * 2
-  bne a0, a1, .Lunhandleable_trap
-  li a1, HTIF_INTERRUPT_VECTOR
 
 .Lhandle_trap_in_machine_mode:
   # Preserve the registers.  Compute the address of the trap handler.
@@ -92,7 +83,7 @@ trap_vector:
   STORE t2, 7*REGBYTES(sp)
   add t1, t0, t1                   # t1 <- %hi(trap_table)[mcause]
   STORE s0, 8*REGBYTES(sp)
-  lw t1, %pcrel_lo(1b)(t1)         # t1 <- trap_table[mcause]
+  LWU t1, %pcrel_lo(1b)(t1)         # t1 <- trap_table[mcause]
   STORE s1, 9*REGBYTES(sp)
   mv a0, sp                        # a0 <- regs
   STORE a2,12*REGBYTES(sp)
@@ -119,7 +110,7 @@ trap_vector:
   STORE t6,31*REGBYTES(sp)
   STORE t0, 2*REGBYTES(sp)         # sp
 
-#ifndef __riscv_hard_float
+#ifndef __riscv_flen
   lw tp, (sp) # Move the emulated FCSR from x0's save slot into tp.
 #endif
   STORE x0, (sp) # Zero x0's save slot.
@@ -127,7 +118,7 @@ trap_vector:
   # Invoke the handler.
   jalr t1
 
-#ifndef __riscv_hard_float
+#ifndef __riscv_flen
   sw tp, (sp) # Move the emulated FCSR from tp into x0's save slot.
 #endif
 
@@ -168,7 +159,7 @@ restore_regs:
   LOAD t5,30*REGBYTES(sp)
   LOAD t6,31*REGBYTES(sp)
   LOAD sp, 2*REGBYTES(sp)
-  eret
+  mret
 
 .Ltrap_from_machine_mode:
   csrr sp, mscratch
@@ -224,7 +215,14 @@ do_reset:
   li x29, 0
   li x30, 0
   li x31, 0
+
   csrw mscratch, x0
+
+  # write mtvec and make sure it sticks
+  la t0, trap_vector
+  csrw mtvec, t0
+  csrr t1, mtvec
+1:bne t0, t1, 1b
 
   # sp <- end of first full page after the end of the binary
   la sp, _end + 2*RISCV_PGSIZE - 1
@@ -238,11 +236,22 @@ do_reset:
 
   beqz a0, init_first_hart
 
+  # set MSIE bit to receive IPI
+  li a1, MIP_MSIP
+  csrw mie, a1
+
 .LmultiHart:
 #if MAX_HARTS > 1
+  # wait for an IPI to signal that it's safe to boot
+  wfi
+  csrr a1, mip
+  andi a1, a1, MIP_MSIP
+  beqz a1, .LmultiHart
+
   # make sure our hart id is within a valid range
+  fence
   li a1, MAX_HARTS
   bltu a0, a1, init_other_hart
-  wfi
 #endif
+  wfi
   j .LmultiHart

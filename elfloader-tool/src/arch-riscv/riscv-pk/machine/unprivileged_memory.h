@@ -39,7 +39,7 @@ DECLARE_UNPRIVILEGED_LOAD_FUNCTION(int32_t, lw)
 DECLARE_UNPRIVILEGED_STORE_FUNCTION(uint8_t, sb)
 DECLARE_UNPRIVILEGED_STORE_FUNCTION(uint16_t, sh)
 DECLARE_UNPRIVILEGED_STORE_FUNCTION(uint32_t, sw)
-#ifdef __riscv64
+#if __riscv_xlen == 64
 DECLARE_UNPRIVILEGED_LOAD_FUNCTION(uint32_t, lwu)
 DECLARE_UNPRIVILEGED_LOAD_FUNCTION(uint64_t, ld)
 DECLARE_UNPRIVILEGED_STORE_FUNCTION(uint64_t, sd)
@@ -57,7 +57,7 @@ static uint32_t __attribute__((always_inline)) get_insn(uintptr_t mepc, uintptr_
        "lw %[insn], (%[addr])\n"
        "csrw mstatus, %[mstatus]"
        : [mstatus] "+&r" (__mstatus), [insn] "=&r" (val)
-       : [mprv] "r" (MSTATUS_MPRV), [addr] "r" (__mepc));
+       : [mprv] "r" (MSTATUS_MPRV | MSTATUS_MXR), [addr] "r" (__mepc));
 #else
   uintptr_t rvc_mask = 3, tmp;
   asm ("csrrs %[mstatus], mstatus, %[mprv]\n"
@@ -69,7 +69,7 @@ static uint32_t __attribute__((always_inline)) get_insn(uintptr_t mepc, uintptr_
        "add %[insn], %[insn], %[tmp]\n"
        "1: csrw mstatus, %[mstatus]"
        : [mstatus] "+&r" (__mstatus), [insn] "=&r" (val), [tmp] "=&r" (tmp)
-       : [mprv] "r" (MSTATUS_MPRV), [addr] "r" (__mepc),
+       : [mprv] "r" (MSTATUS_MPRV | MSTATUS_MXR), [addr] "r" (__mepc),
          [rvc_mask] "r" (rvc_mask));
 #endif
   *mstatus = __mstatus;

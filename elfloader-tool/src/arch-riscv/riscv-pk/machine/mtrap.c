@@ -6,7 +6,10 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include "stdio.h"
+
+volatile uint64_t tohost __attribute__((aligned(64))) __attribute__((section("htif")));
+volatile uint64_t fromhost __attribute__((aligned(64))) __attribute__((section("htif")));
+static spinlock_t htif_lock = SPINLOCK_INIT;
 
 void __attribute__((noreturn)) bad_trap()
 {
@@ -20,37 +23,61 @@ static uintptr_t mcall_hart_id()
 
 static void request_htif_keyboard_interrupt()
 {
-  uintptr_t old_tohost = swap_csr(mtohost, TOHOST_CMD(1, 0, 0));
-  assert(old_tohost == 0);
+  assert(tohost == 0);
+  tohost = TOHOST_CMD(1, 0, 0);
 }
 
-void htif_interrupt()
+static void __htif_interrupt()
 {
-  uintptr_t fromhost = swap_csr(mfromhost, 0);
   // we should only be interrupted by keypresses
-  if (!(FROMHOST_DEV(fromhost) == 1 && FROMHOST_CMD(fromhost) == 0))
+  uint64_t fh = fromhost;
+  if (!fh)
+    return;
+  if (!(FROMHOST_DEV(fh) == 1 && FROMHOST_CMD(fh) == 0))
     die("unexpected htif interrupt");
-  HLS()->console_ibuf = 1 + (uint8_t)FROMHOST_DATA(fromhost);
+  HLS()->console_ibuf = 1 + (uint8_t)FROMHOST_DATA(fh);
+  fromhost = 0;
   set_csr(mip, MIP_SSIP);
 }
 
 static void do_tohost_fromhost(uintptr_t dev, uintptr_t cmd, uintptr_t data)
 {
-  while (swap_csr(mtohost, TOHOST_CMD(dev, cmd, data)) != 0)
-    if (read_csr(mfromhost))
-      htif_interrupt();
+  spinlock_lock(&htif_lock);
+    while (tohost)
+      __htif_interrupt();
+    tohost = TOHOST_CMD(dev, cmd, data);
 
-  while (1) {
-    //uintptr_t fromhost = read_csr(mfromhost);
-    uint64_t fromhost = read_csr(mfromhost);
-    if (fromhost) {
-      if (FROMHOST_DEV(fromhost) == dev && FROMHOST_CMD(fromhost) == cmd) {
-        write_csr(mfromhost, 0);
-        break;
+    while (1) {
+      uint64_t fh = fromhost;
+      if (fh) {
+        if (FROMHOST_DEV(fh) == dev && FROMHOST_CMD(fh) == cmd) {
+          fromhost = 0;
+          break;
+        }
+        __htif_interrupt();
       }
-      htif_interrupt();
     }
+  spinlock_unlock(&htif_lock);
+}
+
+static void htif_interrupt()
+{
+  if (spinlock_trylock(&htif_lock) == 0) {
+    __htif_interrupt();
+    spinlock_unlock(&htif_lock);
   }
+}
+
+uintptr_t timer_interrupt()
+{
+  // just send the timer interrupt to the supervisor
+  clear_csr(mie, MIP_MTIP);
+  set_csr(mip, MIP_STIP);
+
+  // and poll the HTIF console
+  htif_interrupt();
+
+  return 0;
 }
 
 static uintptr_t mcall_console_putchar(uint8_t ch)
@@ -68,7 +95,7 @@ static uintptr_t mcall_htif_syscall(uintptr_t magic_mem)
 void poweroff()
 {
   while (1)
-    write_csr(mtohost, 1);
+    tohost = 1;
 }
 
 void putstring(const char* s)
@@ -93,7 +120,7 @@ static void send_ipi(uintptr_t recipient, int event)
 {
   if ((atomic_or(&OTHER_HLS(recipient)->mipi_pending, event) & event) == 0) {
     mb();
-    OTHER_HLS(recipient)->csrs[CSR_MIPI] = 1;
+    *OTHER_HLS(recipient)->ipi = 1;
   }
 }
 
@@ -138,12 +165,7 @@ static uintptr_t mcall_shutdown()
 
 static uintptr_t mcall_set_timer(uint64_t when)
 {
-  // bbl/pk don't use the timer, so there's no need to virtualize it
-#ifdef __riscv32
-  write_csr(mtimecmp, -1);
-  write_csr(mtimecmph, (uintptr_t)(when >> 32));
-#endif
-  write_csr(mtimecmp, (uintptr_t)when);
+  *HLS()->timecmp = when;
   clear_csr(mip, MIP_STIP);
   set_csr(mie, MIP_MTIP);
   return 0;
@@ -151,7 +173,7 @@ static uintptr_t mcall_set_timer(uint64_t when)
 
 void software_interrupt()
 {
-  clear_csr(mip, MIP_MSIP);
+  *HLS()->ipi = 0;
   mb();
   int ipi_pending = atomic_swap(&HLS()->mipi_pending, 0);
 
@@ -228,7 +250,7 @@ void mcall_trap(uint64_t* regs, uintptr_t mcause, uintptr_t mepc)
       retval = mcall_shutdown();
       break;
     case MCALL_SET_TIMER:
-#ifdef __riscv32
+#if __riscv_xlen == 32
       retval = mcall_set_timer(arg0 + ((uint64_t)arg1 << 32));
 #else
       retval = mcall_set_timer(arg0);
@@ -254,13 +276,12 @@ void redirect_trap(uintptr_t epc, uintptr_t mstatus)
   write_csr(scause, read_csr(mcause));
   write_csr(mepc, read_csr(stvec));
 
-  uintptr_t prev_priv = EXTRACT_FIELD(mstatus, MSTATUS_MPP);
-  uintptr_t prev_ie = EXTRACT_FIELD(mstatus, MSTATUS_MPIE);
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_SPP, prev_priv);
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_SPIE, prev_ie);
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_S);
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPIE, 0);
-  write_csr(mstatus, mstatus);
+  uintptr_t new_mstatus = mstatus & ~(MSTATUS_SPP | MSTATUS_SPIE | MSTATUS_MPIE);
+  uintptr_t mpp_s = MSTATUS_MPP & (MSTATUS_MPP >> 1);
+  new_mstatus |= (mstatus / (MSTATUS_MPIE / MSTATUS_SPIE)) & MSTATUS_SPIE;
+  new_mstatus |= (mstatus / (mpp_s / MSTATUS_SPP)) & MSTATUS_SPP;
+  new_mstatus |= mpp_s;
+  write_csr(mstatus, new_mstatus);
 
   extern void __redirect_trap();
   return __redirect_trap();

@@ -184,7 +184,7 @@ endif
 ifeq ($(CONFIG_ARCH_RISCV),y)
   #ccflags-y += $(call cc-option,-m32)
   # Crucial for ABI compatability, otherwise linking will fail
-   asflags-y += -Wa,-m64
+  # asflags-y += -Wa,-m64
    DEFINES += ARCH_RISCV
    DEFINES += __KERNEL_64__
    export ARCH = riscv

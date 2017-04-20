@@ -14,12 +14,12 @@ void misaligned_load_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
   union byte_array val;
   uintptr_t mstatus;
   insn_t insn = get_insn(mepc, &mstatus);
-  uintptr_t addr = GET_RS1(insn, regs) + IMM_I(insn);
+  uintptr_t addr = read_csr(mbadaddr);
 
   int shift = 0, fp = 0, len;
   if ((insn & MASK_LW) == MATCH_LW)
     len = 4, shift = 8*(sizeof(uintptr_t) - len);
-#ifdef __riscv64
+#if __riscv_xlen == 64
   else if ((insn & MASK_LD) == MATCH_LD)
     len = 8, shift = 8*(sizeof(uintptr_t) - len);
   else if ((insn & MASK_LWU) == MATCH_LWU)
@@ -39,7 +39,7 @@ void misaligned_load_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
 
   val.int64 = 0;
-  for (intptr_t i = len-1; i >= 0; i--)
+  for (intptr_t i = 0; i < len; i++)
     val.bytes[i] = load_uint8_t((void *)(addr + i), mepc);
 
   if (!fp)
@@ -56,17 +56,13 @@ void misaligned_store_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
 {
   union byte_array val;
   uintptr_t mstatus;
-  uintptr_t mbadaddr;
   insn_t insn = get_insn(mepc, &mstatus);
   int len;
 
-  asm volatile ("csrr %0, mbadaddr\n" : "=r"(mbadaddr) ::);
-  printf("misaligned_store_trap\n");
-  printf("mbadaddr = %p\n", mbadaddr);
   val.intx = GET_RS2(insn, regs);
   if ((insn & MASK_SW) == MATCH_SW)
     len = 4;
-#ifdef __riscv64
+#if __riscv_xlen == 64
   else if ((insn & MASK_SD) == MATCH_SD)
     len = 8;
 #endif
@@ -81,7 +77,7 @@ void misaligned_store_trap(uintptr_t* regs, uintptr_t mcause, uintptr_t mepc)
   else
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
 
-  uintptr_t addr = GET_RS1(insn, regs) + IMM_S(insn);
+  uintptr_t addr = read_csr(mbadaddr);
   for (int i = 0; i < len; i++)
     store_uint8_t((void *)(addr + i), val.bytes[i], mepc);
 

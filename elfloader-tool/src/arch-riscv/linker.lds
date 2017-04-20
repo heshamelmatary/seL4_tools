@@ -20,7 +20,7 @@ SECTIONS
   /*--------------------------------------------------------------------*/
 
   /* Begining of code and text segment */
-  . = 0;
+  . = 0x80000000;
   _ftext = .;
   PROVIDE( eprol = . );
 
@@ -31,29 +31,23 @@ SECTIONS
     *(.text.init)
     *(.text.start)
     *(.text)
-  }
-
-  .sbi :
-  {
-    *(.sbi)
-  }
-
-  /* rodata: Read-only data */
-  .rodata : 
-  {
-    *(.rodata)
-    *(.rodata.*)
-      
-    . = ALIGN(8);
-    . = . + 4;
-    _archive_start = .;
-      *(.archive_ar) 
-    _archive_end = .;
+    *(.text.*)
+    *(.gnu.linkonce.t.*)
   }
 
   /* End of code and read-only segment */
   PROVIDE( etext = . );
   _etext = .;
+
+  /*--------------------------------------------------------------------*/
+  /* HTIF, isolated onto separate page                                  */
+  /*--------------------------------------------------------------------*/
+  . = ALIGN(0x1000);
+  htif :
+  {
+    *(htif)
+  }
+  . = ALIGN(0x1000);
 
   /*--------------------------------------------------------------------*/
   /* Initialized data segment                                           */
@@ -62,12 +56,17 @@ SECTIONS
   /* Start of initialized data segment */
   . = ALIGN(16);
    _fdata = .;
-
+  
   /* data: Writable data */
-  .data : 
+  .data :
   {
     *(.data)
     *(.data.*)
+        *(.sdata*)
+
+    *(.srodata*)
+    *(.gnu.linkonce.d.*)
+    *(.comment)
   }
 
   /* End of initialized data segment */
@@ -92,7 +91,29 @@ SECTIONS
   .bss : 
   {
     *(.bss)
+    *(.bss.*)
+    *(.sbss*)
+    *(.gnu.linkonce.b.*)
+    *(COMMON)
   }
+  .sbi :
+  {
+    *(.sbi)
+  }
+
+  /* rodata: Read-only data */
+  .rodata : 
+  {
+    *(.rodata)
+    *(.rodata.*)
+      
+    . = ALIGN(8);
+    . = . + 4;
+    _archive_start = .;
+      *(.archive_ar) 
+    _archive_end = .;
+  }
+
 
 _end = .;
 }
