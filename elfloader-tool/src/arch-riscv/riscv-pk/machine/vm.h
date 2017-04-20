@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 #define MEGAPAGE_SIZE ((uintptr_t)(RISCV_PGSIZE << RISCV_PGLEVEL_BITS))
-#ifdef __riscv64
+#if __riscv_xlen == 64
 # define VM_CHOICE VM_SV39
 # define VA_BITS 39
 # define GIGAPAGE_SIZE (MEGAPAGE_SIZE << RISCV_PGLEVEL_BITS)
@@ -29,7 +29,7 @@ static inline pte_t pte_create(uintptr_t ppn, int type)
 
 static inline pte_t ptd_create(uintptr_t ppn)
 {
-  return pte_create(ppn, PTE_TYPE_TABLE);
+  return pte_create(ppn, PTE_V);
 }
 
 #endif

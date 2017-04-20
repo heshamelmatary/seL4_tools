@@ -10,6 +10,7 @@
 
 #include "string.h"
 
+/*
 int strcmp(const char *a, const char *b)
 {
     while (1) {
@@ -48,4 +49,4 @@ void *memcpy(void *dest, void *src, size_t n)
 
     return dest;
 }
-
+*/

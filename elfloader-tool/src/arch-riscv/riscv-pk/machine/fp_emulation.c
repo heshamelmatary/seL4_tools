@@ -45,8 +45,8 @@ DECLARE_EMULATION_FUNC(emulate_fp)
   if (unlikely((mstatus & MSTATUS_FS) == 0))
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
 
-  extern int32_t fp_emulation_table[];
-  int32_t* pf = (void*)fp_emulation_table + ((insn >> 25) & 0x7c);
+  extern uint32_t fp_emulation_table[];
+  uint32_t* pf = (void*)fp_emulation_table + ((insn >> 25) & 0x7c);
   emulation_func f = (emulation_func)(uintptr_t)*pf;
 
   SETUP_STATIC_ROUNDING(insn);
@@ -206,7 +206,7 @@ DECLARE_EMULATION_FUNC(emulate_fcvt_fi)
     case 1: // uint32
       uint_val = (uint32_t)uint_val;
       break;
-#ifdef __riscv64
+#if __riscv_xlen == 64
     case 2: // int64
       negative = (int64_t)uint_val < 0;
       uint_val = negative ? -uint_val : uint_val;
@@ -230,7 +230,7 @@ DECLARE_EMULATION_FUNC(emulate_fcvt_fi)
 DECLARE_EMULATION_FUNC(emulate_fcvt_if)
 {
   int rs2_num = (insn >> 20) & 0x1f;
-#ifdef __riscv64
+#if __riscv_xlen == 64
   if (rs2_num >= 4)
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
 #else
@@ -337,14 +337,26 @@ success:
 DECLARE_EMULATION_FUNC(emulate_fmv_if)
 {
   uintptr_t result;
-  if ((insn & MASK_FMV_X_S) == MATCH_FMV_X_S)
-    result = GET_F32_RS1(insn, regs);
-#ifdef __riscv64
-  else if ((insn & MASK_FMV_X_D) == MATCH_FMV_X_D)
-    result = GET_F64_RS1(insn, regs);
-#endif
-  else
+  if ((insn >> 20) & 0x1f)
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
+
+  if (GET_PRECISION(insn) == PRECISION_S) {
+    result = GET_F32_RS1(insn, regs);
+    switch (GET_RM(insn)) {
+      case GET_RM(MATCH_FMV_X_S): break;
+      case GET_RM(MATCH_FCLASS_S): result = f32_classify(result); break;
+      default: return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
+    }
+  } else if (GET_PRECISION(insn) == PRECISION_D) {
+    result = GET_F64_RS1(insn, regs);
+    switch (GET_RM(insn)) {
+      case GET_RM(MATCH_FMV_X_D): break;
+      case GET_RM(MATCH_FCLASS_D): result = f64_classify(result); break;
+      default: return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
+    }
+  } else {
+    return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
+  }
 
   SET_RD(insn, regs, result);
 }
@@ -355,8 +367,10 @@ DECLARE_EMULATION_FUNC(emulate_fmv_fi)
 
   if ((insn & MASK_FMV_S_X) == MATCH_FMV_S_X)
     SET_F32_RD(insn, regs, rs1);
+#if __riscv_xlen == 64
   else if ((insn & MASK_FMV_D_X) == MATCH_FMV_D_X)
     SET_F64_RD(insn, regs, rs1);
+#endif
   else
     return truly_illegal_insn(regs, mcause, mepc, mstatus, insn);
 }

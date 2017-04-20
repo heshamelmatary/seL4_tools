@@ -13,6 +13,7 @@
 
 #include "sbi.h"
 #include <stdint.h>
+#include <stddef.h>
 
 #define read_const_csr(reg) ({ unsigned long __tmp; \
   asm ("csrr %0, " #reg : "=r"(__tmp)); \
@@ -25,28 +26,27 @@ static inline int supports_extension(char ext)
 
 static inline int xlen()
 {
-  //return read_const_csr(misa) < 0 ? 64 : 32;
-  return 64;
+  return read_const_csr(misa) < 0 ? 64 : 32;
 }
 
 extern uintptr_t first_free_paddr;
 extern uintptr_t mem_size;
 extern uintptr_t num_harts;
-
-typedef uintptr_t csr_t; // TODO this might become uint128_t for RV128
+extern volatile uint64_t* mtime;
+extern volatile uint32_t* plic_priorities;
+extern size_t plic_ndevs;
 
 typedef struct {
-  volatile csr_t* csrs;
+  uint64_t* timecmp;
+  uint32_t* ipi;
   volatile int mipi_pending;
   volatile int sipi_pending;
   int console_ibuf;
 
-  uint64_t utime_delta;
-  uint64_t ucycle_delta;
-  uint64_t uinstret_delta;
-  uint64_t stime_delta;
-  uint64_t scycle_delta;
-  uint64_t sinstret_delta;
+  volatile uint32_t* plic_m_thresh;
+  volatile uintptr_t* plic_m_ie;
+  volatile uint32_t* plic_s_thresh;
+  volatile uintptr_t* plic_s_ie;
 } hls_t;
 
 #define IPI_SOFT      0x1
@@ -55,13 +55,14 @@ typedef struct {
 
 #define MACHINE_STACK_TOP() ({ \
   register uintptr_t sp asm ("sp"); \
-  (void*)((sp + RISCV_PGSIZE) & -RISCV_PGSIZE); })
+  (void*)((sp + RISCV_PGSIZE)); })
+  //(void*)((sp + RISCV_PGSIZE) & -RISCV_PGSIZE); })
 
 // hart-local storage, at top of stack
 #define HLS() ((hls_t*)(MACHINE_STACK_TOP() - HLS_SIZE))
 #define OTHER_HLS(id) ((hls_t*)((void*)HLS() + RISCV_PGSIZE * ((id) - read_const_csr(mhartid))))
 
-void hls_init(uintptr_t hart_id, csr_t* csrs);
+hls_t* hls_init(uintptr_t hart_id);
 void parse_config_string();
 void poweroff(void) __attribute((noreturn));
 void printm(const char* s, ...);
@@ -85,7 +86,7 @@ static inline void wfi()
 #define MENTRY_FRAME_SIZE (INTEGER_CONTEXT_SIZE + SOFT_FLOAT_CONTEXT_SIZE \
                            + HLS_SIZE)
 
-#ifdef __riscv_hard_float
+#ifdef __riscv_flen
 # define SOFT_FLOAT_CONTEXT_SIZE 0
 #else
 # define SOFT_FLOAT_CONTEXT_SIZE (8 * 32)

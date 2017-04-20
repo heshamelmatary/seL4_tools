@@ -4,24 +4,20 @@
 #include "elf.h"
 #include "mtrap.h"
 #include "frontend.h"
+#include <stdbool.h>
 
 elf_info current;
-
-int uarch_counters_enabled;
-long uarch_counters[NUM_COUNTERS];
-char* uarch_counter_names[NUM_COUNTERS];
 
 static void handle_option(const char* s)
 {
   switch (s[1])
   {
     case 's': // print cycle count upon termination
-      current.t0 = 1;
+      current.cycle0 = 1;
       break;
 
-    case 'c': // print uarch counters upon termination
-              // If your HW doesn't support uarch counters, then don't use this flag!
-      uarch_counters_enabled = 1;
+    case 'p': // disable demand paging
+      demand_paging = 0;
       break;
 
     default:
@@ -38,7 +34,7 @@ typedef union {
 
 static size_t parse_args(arg_buf* args)
 {
-  long r = frontend_syscall(SYS_getmainvars, (uintptr_t)args, sizeof(*args), 0, 0, 0, 0, 0);
+  long r = frontend_syscall(SYS_getmainvars, va2pa(args), sizeof(*args), 0, 0, 0, 0, 0);
   kassert(r == 0);
   uint64_t* pk_argv = &args->buf[1];
   // pk_argv[0] is the proxy kernel itself.  skip it and any flags.
@@ -73,6 +69,20 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
     memcpy((void*)stack_top, (void*)(uintptr_t)argv[i], len);
     argv[i] = (void*)stack_top;
   }
+
+  // copy envp to user stack
+  const char* envp[] = {
+    // environment goes here
+  };
+  size_t envc = sizeof(envp) / sizeof(envp[0]);
+  for (size_t i = 0; i < envc; i++) {
+    size_t len = strlen(envp[i]) + 1;
+    stack_top -= len;
+    memcpy((void*)stack_top, envp[i], len);
+    envp[i] = (void*)stack_top;
+  }
+
+  // align stack
   stack_top &= -sizeof(void*);
 
   struct {
@@ -97,14 +107,16 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
 
   #define STACK_INIT(type) do { \
     unsigned naux = sizeof(aux)/sizeof(aux[0]); \
-    stack_top -= (1 + argc + 1 + 1 + 2*naux) * sizeof(type); \
+    stack_top -= (1 + argc + 1 + envc + 1 + 2*naux) * sizeof(type); \
     stack_top &= -16; \
     long sp = stack_top; \
     PUSH_ARG(type, argc); \
     for (unsigned i = 0; i < argc; i++) \
       PUSH_ARG(type, argv[i]); \
     PUSH_ARG(type, 0); /* argv[argc] = NULL */ \
-    PUSH_ARG(type, 0); /* envp[0] = NULL */ \
+    for (unsigned i = 0; i < envc; i++) \
+      PUSH_ARG(type, envp[i]); \
+    PUSH_ARG(type, 0); /* envp[envc] = NULL */ \
     for (unsigned i = 0; i < naux; i++) { \
       PUSH_ARG(type, aux[i].key); \
       PUSH_ARG(type, aux[i].value); \
@@ -113,24 +125,10 @@ static void run_loaded_program(size_t argc, char** argv, uintptr_t kstack_top)
 
   STACK_INIT(uintptr_t);
 
-  if (current.t0) // start timer if so requested
-    current.t0 = rdcycle();
-
-  if (uarch_counters_enabled) { // start tracking the uarch counters if requested
-    size_t i = 0;
-    #define READ_CTR_INIT(name) do { \
-      while (i >= NUM_COUNTERS) ; \
-      long csr = read_csr(name); \
-      uarch_counters[i++] = csr; \
-    } while (0)
-    READ_CTR_INIT(cycle);   READ_CTR_INIT(instret);
-    READ_CTR_INIT(uarch0);  READ_CTR_INIT(uarch1);  READ_CTR_INIT(uarch2);
-    READ_CTR_INIT(uarch3);  READ_CTR_INIT(uarch4);  READ_CTR_INIT(uarch5);
-    READ_CTR_INIT(uarch6);  READ_CTR_INIT(uarch7);  READ_CTR_INIT(uarch8);
-    READ_CTR_INIT(uarch9);  READ_CTR_INIT(uarch10); READ_CTR_INIT(uarch11);
-    READ_CTR_INIT(uarch12); READ_CTR_INIT(uarch13); READ_CTR_INIT(uarch14);
-    READ_CTR_INIT(uarch15);
-    #undef READ_CTR_INIT
+  if (current.cycle0) { // start timer if so requested
+    current.time0 = rdtime();
+    current.cycle0 = rdcycle();
+    current.instret0 = rdinstret();
   }
 
   trapframe_t tf;

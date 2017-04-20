@@ -423,7 +423,7 @@ static void enter_sel4_supervisor_mode(void)
   register uint64_t a3 asm("a3") = user_info.virt_entry;
   register uint64_t a4 asm("a4") = l1pt[511];
   
-  asm volatile ("mv sp, %0; eret" : : "r" (stack));
+  asm volatile ("mv sp, %0; sret" : : "r" (stack));
   __builtin_unreachable();
 }
 

@@ -14,3 +14,4 @@ uint_fast32_t softfloat_commonNaNToF32UI( struct commonNaN a )
     return (uint_fast32_t) a.sign<<31 | 0x7FFFFFFF;
 
 }
+

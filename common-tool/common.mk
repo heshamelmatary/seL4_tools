@@ -78,11 +78,11 @@ CONFIG_USER_CFLAGS:=$(patsubst %",%,$(patsubst "%,%,${CONFIG_USER_CFLAGS}))
 # However we cannot use these when performing link time optimisations.
 # We define these as variables here such that they can be overridden
 # if LTO is enabled
-#STARTGROUP := -Wl,--start-group
-#ENDGROUP := -Wl,--end-group
+STARTGROUP := -Wl,--start-group
+ENDGROUP := -Wl,--end-group
 
-STARTGROUP :=
-ENDGROUP :=
+#STARTGROUP :=
+#ENDGROUP :=
 
 ifeq (${CONFIG_USER_CFLAGS},)
     CFLAGS += $(WARNINGS:%=-W%) -nostdinc -std=gnu11

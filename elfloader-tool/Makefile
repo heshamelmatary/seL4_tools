@@ -29,6 +29,7 @@ TYPE_SUFFIX:=64
 CFILES   := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/bbl/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/softfloat/*.c))
+CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/util/*.c))
 CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/elf/*.c))
 ASMFILES := $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/mentry.S))
 ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/*.S))
@@ -40,38 +41,36 @@ CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARC
 
 NK_CFLAGS += -D_XOPEN_SOURCE=700
 
-ifeq ($(__ARM_32__),y)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/32/crt0.S)
-CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/32/*.c))
+CFLAGS   = -nodefaultlibs
+#ASFLAGS   += -nodefaultlibs
+LDFLAGS = -nodefaultlibs -nostdlib
+#LDFLAGS = -nodefaultlibs -nostdlib
+
+ifeq ($(ARMV),armv5)
+ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/mmu-v5.S)
+endif
 ifeq ($(ARMV),armv6)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/32/mmu-v6.S)
+ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/mmu-v6.S)
 endif
 ifeq ($(ARMV),armv7-a)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/32/smc.S)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/32/mmu-v7a.S)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/32/mmu-v7a-hyp.S)
-endif
-endif
-
-ifeq ($(__ARM_64__),y)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/64/crt0.S)
-CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/64/*.c))
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/64/traps.S)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/64/mmu-v8a.S)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/64/mmu-v8a-hyp.S)
+ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/smc.S)
+ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/mmu-v7a.S)
+ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/mmu-v7a-hyp.S)
 endif
 
-ifeq ($(__EFI__),y)
-ASMFILES += $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/efi/head.S)
-CFILES   += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/efi/*.c))
-endif
-
-INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-arm/plat-$(PLAT)/
+#INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-arm/plat-$(PLAT)/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-riscv/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-riscv/plat-$(PLAT)/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/softfloat/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/machine/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/bbl/
+INCLUDE_DIRS += $(SOURCE_DIR)/src/arch-$(ARCH)/riscv-pk/pk/
+#INCLUDE_DIRS += $(patsubst $(SOURCE_DIR)/%,%,$(wildcard $(SOURCE_DIR)/src/arch-$(ARCH)/softfloat/*.h)) 
 
 LIBS = cpio
 
 NK_CFLAGS += -ffreestanding -Wall -W
-NK_CFLAGS += -m64 -msoft-abi=soft
+NK_CFLAGS +=
 
 include $(SEL4_COMMON)/common.mk
 
