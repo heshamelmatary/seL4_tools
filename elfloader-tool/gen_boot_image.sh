@@ -65,7 +65,7 @@ case "$PLAT" in
         FORMAT=elf32-littlearm
         ;;
     "spike")
-        ENTRY_ADDR=0x0000000080000000;
+        ENTRY_ADDR=0x0000000080200000;
         FORMAT=elf64-littleriscv
         ;;
     "imx31"|"omap3"|"am335x"|"omap4")
@@ -147,7 +147,7 @@ if [ "${STRIP}" = "y" ]; then
     ${TOOLPREFIX}strip --strip-all ${TEMP_DIR}/cpio/*
 fi
 
-dd if=/dev/urandom of=dummypayload bs=8 count=1
+dd if=/dev/urandom of=dummypayload bs=4 count=1
 cp dummypayload ${TEMP_DIR}/cpio
 
 if [ "${HASH}" = "y" ]; then

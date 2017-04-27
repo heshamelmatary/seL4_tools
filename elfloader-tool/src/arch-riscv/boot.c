@@ -8,42 +8,9 @@
 #include "elfloader.h"
 #include <platform.h>
 
-#include "mtrap.h"
-#include "bits.h"
-#include "vm.h"
-
 #include <cpio/cpio.h>
 
 #define MIN(a, b) (((a)<(b))?(a):(b))
-
-/*************************** MMU ************************************/
-
-#define MSTATUS_IE          0x00000001
-#define MSTATUS_PRV         0x00000006
-#define MSTATUS_IE1         0x00000008
-#define MSTATUS_PRV1        0x00000030
-#define MSTATUS_IE2         0x00000040
-#define MSTATUS_PRV2        0x00000180
-#define MSTATUS_IE3         0x00000200
-#define MSTATUS_PRV3        0x00000C00
-#define MSTATUS_FS          0x00003000
-#define MSTATUS_XS          0x0000C000
-#define MSTATUS_MPRV        0x00010000
-#define MSTATUS_VM          0x003E0000
-#define MSTATUS32_SD        0x80000000
-#define MSTATUS64_SD        0x8000000000000000
-
-#define PRV_U 0 
-#define PRV_S 1 
-#define PRV_H 2 
-#define PRV_M 3 
-
-#define VM_MBARE 0
-#define VM_MBB   1
-#define VM_MBBID 2
-#define VM_SV32  8
-#define VM_SV39  9
-#define VM_SV48  10
 
 #define PTE_TYPE_TABLE 0x00
 #define PTE_TYPE_TABLE_GLOBAL 0x02
@@ -56,7 +23,7 @@
 #define PTE_TYPE_SR 0x10
 #define PTE_TYPE_SRW 0x12
 #define PTE_TYPE_SRX 0x14
-#define PTE_TYPE_SRWX 0x16
+#define PTE_TYPE_SRWX 0xCE
 #define PTE_TYPE_SR_GLOBAL 0x18
 #define PTE_TYPE_SRW_GLOBAL 0x1A
 #define PTE_TYPE_SRX_GLOBAL 0x1C
@@ -118,15 +85,19 @@
     asm volatile ("csrrc %0, " #reg ", %1" : "=r"(__tmp) : "r"(bit)); \
   __tmp; })
 
-
 struct image_info kernel_info;
 struct image_info user_info;
 
 uint64_t l1pt[PTES_PER_PT] __attribute__((aligned(4096)));
 uint64_t l2pt_elfloader[PTES_PER_PT] __attribute__((aligned(4096)));
 uint64_t l2pt_kernel[PTES_PER_PT] __attribute__((aligned(4096)));
-uint64_t l2pt_sbi[PTES_PER_PT] __attribute__((aligned(4096)));
-uint64_t l3pt_sbi[PTES_PER_PT] __attribute__((aligned(4096)));
+char elfloader_stack_alloc[CONFIG_MAX_NUM_NODES][BIT(CONFIG_KERNEL_STACK_BITS)];
+
+#if CONFIG_MAX_NUM_NODES > 1
+/* sync variable to prevent other nodes from booting
+ * until kernel data structures initialized */
+static volatile int node_boot_lock = 0;
+#endif /* CONFIG_MAX_NUM_NODES > 1 */
 
 void
 map_kernel_window(struct image_info *kernel_info)
@@ -143,34 +114,24 @@ map_kernel_window(struct image_info *kernel_info)
   /* Only 4 GiB need to be mapped, the first (first-level) PTE would refer to 
    * a second level page table to 1:1 map the elfloader (16Mib)
    */ 
-   l1pt[0] =  PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
+   //l1pt[2] =  PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
   
    printf("kernel_info->phys_region_start = %p\n", kernel_info->phys_region_start);
-   for(i = 0; i < 8; i++)
-     l2pt_elfloader[i] = PTE64_CREATE((uint64_t)(i << PTE64_PPN1_SHIFT), PTE_TYPE_SRWX);
+   //for(i = 0; i < 128; i++)
+     //l2pt_elfloader[i] = PTE64_CREATE((uint64_t)(i << PTE64_PPN1_SHIFT), PTE_TYPE_SRWX);
+
+   printf("&l1pt = %llu\n", &l1pt);
+   for(i = 0; i < 20; i++)
+     l1pt[i] = PTE64_CREATE((uint64_t)(i << 28), PTE_TYPE_SRWX);
   
    /* 256 MiB kernel mapping (128 PTE * 2MiB per entry) */
+   //l1pt[510] = PTE64_CREATE((((uint64_t)kernel_info->phys_region_start) & 0xffffffffffff0000llu), PTE_TYPE_SRWX);
    l1pt[510] =  PTE64_PT_CREATE(&l2pt_kernel);
    for(i = 0; i < 128; i++, phys++)
      /* The first two bits are always 0b11 since the MSB is 0xF */
      l2pt_kernel[i] = PTE64_CREATE((((uint64_t)kernel_info->phys_region_start) + (i << 21) >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
-  
 
-  // map SBI at top of vaddr space
-  extern char _sbi_end[];
-
-  uintptr_t num_sbi_pages = ((uintptr_t)&_sbi_end - 1) / RISCV_PGSIZE + 1;
-  assert(num_sbi_pages <= (1 << RISCV_PGLEVEL_BITS));
-  for (uintptr_t i = 0; i < num_sbi_pages; i++) {
-    uintptr_t idx = (1 << RISCV_PGLEVEL_BITS) - num_sbi_pages + i;
-    l3pt_sbi[idx] = pte_create(i, PTE_TYPE_SRX_GLOBAL);
-  }
-
-  memset(l2pt_sbi, 0, RISCV_PGSIZE);
-  l2pt_sbi[511] = ptd_create((uintptr_t)l3pt_sbi >> RISCV_PGSHIFT);
-  l1pt[511] = ptd_create((uintptr_t)l2pt_sbi >> RISCV_PGSHIFT);
-
-  set_csr(mstatus, (long)VM_SV32 << __builtin_ctzl(MSTATUS_VM));
+  //set_csr(mstatus, (long)VM_SV32 << __builtin_ctzl(MSTATUS_VM));
 }
 
 /**********************************MMU ******************************************/
@@ -329,9 +290,12 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     struct Elf64_Header aligned_header __attribute__ ((aligned (4096)));
 
+    printf("_archive_start = %p \n", _archive_start);
+
     /* Load kernel. */
     void *kernel_elf = cpio_get_file(_archive_start, "kernel.elf", &unused);
 
+    printf("kernel_elf = %p \n", kernel_elf);
     /* Check of the elf file is not aligned to 8 bytes */
     /*
     if(kernel_elf && 15)
@@ -341,8 +305,6 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
         kernel_elf = &aligned_header;
     }*/
 
-    printf("_archive_start = %p \n", _archive_start);
-    printf("kernel_elf = %p \n", kernel_elf);
     if (kernel_elf == NULL) {
         printf("No kernel image present in archive!\n");
         abort();
@@ -357,8 +319,8 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     printf("&kernel_phys_end = %p\n", kernel_phys_end);
 
-    kernel_phys_end = 0x0000000080000000ull + kernel_phys_end - kernel_phys_start;
-    kernel_phys_start = 0x0000000080000000ull;
+    kernel_phys_end = 0x0000000080800000ull + kernel_phys_end - kernel_phys_start;
+    kernel_phys_start = 0x0000000080800000ull;
     
     next_phys_addr = load_elf("kernel", kernel_elf,
                               (paddr_t)kernel_phys_start, kernel_info);
@@ -406,39 +368,20 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
 static void enter_sel4_supervisor_mode(void)
 {
-  uintptr_t mstatus = read_csr(mstatus);
-  int stack = 0;
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPP, PRV_S);
-  mstatus = INSERT_FIELD(mstatus, MSTATUS_MPIE, 0); 
-  write_csr(mstatus, mstatus);
-  write_csr(mscratch, MACHINE_STACK_TOP() - MENTRY_FRAME_SIZE);
-  write_csr(mepc, sel4_kernel);
-  write_csr(sptbr, (uintptr_t)l1pt >> RISCV_PGSHIFT);
-
-
-  printf("l1pt[511] = %p\n", l1pt[511]);
-  register volatile uint64_t a0 asm("a0") = user_info.phys_region_start;
-  register uint64_t a1 asm("a1") = user_info.phys_region_end;
-  register uint64_t a2 asm("a2") = user_info.phys_virt_offset;
-  register uint64_t a3 asm("a3") = user_info.virt_entry;
-  register uint64_t a4 asm("a4") = l1pt[511];
-  
-  asm volatile ("mv sp, %0; sret" : : "r" (stack));
-  __builtin_unreachable();
 }
 
+int num_apps = 0;
 void main(void)
 {
-    int num_apps = 0;
+    puts("ELF-loader started on\n");
 
       /* Print welcome message. */
-    printf("\nELF-loader started on ");
 
     //platform_init();
 
     printf("  paddr=[%p..%p]\n", _start, _end - 1); 
     /* Unpack ELF images into memory. */
-    load_images(&kernel_info, &user_info, 1, &num_apps);
+    load_images(&kernel_info, &user_info, 1, (uint32_t) &num_apps);
     if (num_apps != 2) {
         printf("No user images loaded!\n");
         abort();
@@ -453,13 +396,50 @@ void main(void)
 
     printf("user_info.phys_region_start = %p\n", user_info.phys_region_start);
     sel4_kernel = (void *) kernel_info.virt_entry;
-    enter_sel4_supervisor_mode();
+    //enter_sel4_supervisor_mode();
 
+    uint64_t vm_mode = 0x8llu << 60;
+
+    asm volatile("sfence.vma");
+
+    asm volatile(
+        "csrw sptbr, %0\n"
+       : 
+       : "r" (vm_mode | (uintptr_t)l1pt >> RISCV_PGSHIFT)
+       :
+   );
+
+#if CONFIG_MAX_NUM_NODES > 1
+   node_boot_lock = 1;
+#endif
 
     ((init_kernel_t)kernel_info.virt_entry)(user_info.phys_region_start,
                                             user_info.phys_region_end, user_info.phys_virt_offset,
-                                            user_info.virt_entry, l1pt[511]);
+                                            user_info.virt_entry, 0);
 
   /* We should never get here. */
     printf("Kernel returned back to the elf-loader.\n");
+}
+
+void boot_seconday_core(int hartid) {
+
+#if CONFIG_MAX_NUM_NODES > 1
+    /* TODO: check that we have right number of hw cores that can support CONFIG_MAX_NUM_NODES */
+    while(!node_boot_lock && hartid < CONFIG_MAX_NUM_NODES);
+
+    uint64_t vm_mode = 0x8llu << 60;
+
+    asm volatile("sfence.vma");
+
+    asm volatile(
+        "csrw sptbr, %0\n"
+       : 
+       : "r" (vm_mode | (uintptr_t)l1pt >> RISCV_PGSHIFT)
+       :
+   );
+
+  ((init_kernel_t)kernel_info.virt_entry)(user_info.phys_region_start,
+                                            user_info.phys_region_end, user_info.phys_virt_offset,
+                                            user_info.virt_entry, hartid);
+#endif
 }
