@@ -54,7 +54,7 @@ case "$PLAT" in
         FORMAT=elf32-littlearm
         ;;
     "spike")
-        ENTRY_ADDR=0x0000000080000000;
+        ENTRY_ADDR=0x0000000080200000;
         FORMAT=elf64-littleriscv
         ;;
     "imx31"|"omap3"|"am335x"|"omap4")
@@ -120,7 +120,7 @@ cp -f ${KERNEL_IMAGE} ${TEMP_DIR}/cpio/kernel.elf
 cp -f ${USER_IMAGE} ${TEMP_DIR}/cpio
 #${TOOLPREFIX}strip --strip-all ${TEMP_DIR}/cpio/*
 
-dd if=/dev/urandom of=dummypayload bs=8 count=1
+dd if=/dev/urandom of=dummypayload bs=4 count=1
 cp dummypayload ${TEMP_DIR}/cpio
 
 pushd "${TEMP_DIR}/cpio" &>/dev/null
