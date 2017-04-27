@@ -23,7 +23,7 @@ typedef unsigned long long uint64_t;
 
 typedef uint64_t uintptr_t;
 typedef int64_t  intptr_t;
-//typedef uint64_t size_t;
+typedef uint64_t size_t;
 
 #define UINT64_MAX (18446744073709551615ULL)
 

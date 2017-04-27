@@ -15,12 +15,11 @@
 #include "../stdint.h"
 #include "../stdio.h"
 #include "platform.h"
-#include "mtrap.h"
+#include "sbi.h"
 
 int
 __fputc(int c, FILE *stream __attribute__((unused)))
 {
-  char str[] = {c, 0};
-  putstring(str);
+  sbi_console_putchar(c);
   return 0;
 }

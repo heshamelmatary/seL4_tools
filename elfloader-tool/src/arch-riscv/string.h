@@ -12,7 +12,6 @@
 #define _STRING_H_
 
 #include "stdint.h"
-#include <stddef.h>
 
 int strcmp(const char *a, const char *b);
 void *memset(void *s, int c, size_t n);
