@@ -34,7 +34,7 @@
 
 // page table entry (PTE) fields
 #define PTE_V     0x001 // Valid
-#define PTE_TYPE  0x01E // Type 
+#define PTE_TYPE  0x01E // Type
 #define PTE_R     0x020 // Referenced
 #define PTE_D     0x040 // Dirty
 #define PTE_SOFT  0x380 // Reserved for Software
@@ -44,7 +44,7 @@
 
 #define PTE64_PPN2_SHIFT 28
 #define PTE64_PPN1_SHIFT 19
-#define PTE64_PPN0_SHIFT 10 
+#define PTE64_PPN0_SHIFT 10
 
 #ifndef CONFIG_ROCKET_CHIP
 #define PTES_PER_PT (RISCV_PGSIZE/sizeof(long))
@@ -52,7 +52,7 @@
 #define PTES_PER_PT (RISCV_PGSIZE/8)
 #endif
 
-/* Virtual address to index conforming sv32 PTE format */ 
+/* Virtual address to index conforming sv32 PTE format */
 #define VIRT1_TO_IDX(addr) ((addr) >> 22)
 #define VIRT0_TO_IDX(addr) (((addr) >> 12)
 
@@ -108,14 +108,14 @@ map_kernel_window(struct image_info *kernel_info)
 
 
 /* This is a hack to run 32-bit code on SV39/RV64 machine. It maps the first 16
- * MiB for elfloader (1:1) mapping, and 256 MiB for kernel at 0xF0000000 at 
+ * MiB for elfloader (1:1) mapping, and 256 MiB for kernel at 0xF0000000 at
  * 2 MiB granularity.
  */
-  /* Only 4 GiB need to be mapped, the first (first-level) PTE would refer to 
+  /* Only 4 GiB need to be mapped, the first (first-level) PTE would refer to
    * a second level page table to 1:1 map the elfloader (16Mib)
-   */ 
+   */
    //l1pt[2] =  PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
-  
+
    printf("kernel_info->phys_region_start = %p\n", kernel_info->phys_region_start);
    //for(i = 0; i < 128; i++)
      //l2pt_elfloader[i] = PTE64_CREATE((uint64_t)(i << PTE64_PPN1_SHIFT), PTE_TYPE_SRWX);
@@ -123,7 +123,7 @@ map_kernel_window(struct image_info *kernel_info)
    printf("&l1pt = %llu\n", &l1pt);
    for(i = 0; i < 20; i++)
      l1pt[i] = PTE64_CREATE((uint64_t)(i << 28), PTE_TYPE_SRWX);
-  
+
    /* 256 MiB kernel mapping (128 PTE * 2MiB per entry) */
    //l1pt[510] = PTE64_CREATE((((uint64_t)kernel_info->phys_region_start) & 0xffffffffffff0000llu), PTE_TYPE_SRWX);
    l1pt[510] =  PTE64_PT_CREATE(&l2pt_kernel);
@@ -226,7 +226,7 @@ static paddr_t load_elf(const char *name, void *elf,
 
     /* Ensure our starting physical address is aligned. */
     if (!IS_ALIGNED(dest_paddr, PAGE_BITS)) {
-        printf("dest address = 0x%x \n", dest_paddr); 
+        printf("dest address = 0x%x \n", dest_paddr);
         printf("Attempting to load ELF at unaligned physical address!\n");
         abort();
     }
@@ -319,9 +319,9 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     printf("&kernel_phys_end = %p\n", kernel_phys_end);
 
-    kernel_phys_end = 0x0000000080800000ull + kernel_phys_end - kernel_phys_start;
-    kernel_phys_start = 0x0000000080800000ull;
-    
+    kernel_phys_end = 0x0000000080900000ull + kernel_phys_end - kernel_phys_start;
+    kernel_phys_start = 0x0000000080900000ull;
+
     next_phys_addr = load_elf("kernel", kernel_elf,
                               (paddr_t)kernel_phys_start, kernel_info);
 
@@ -379,7 +379,7 @@ void main(void)
 
     //platform_init();
 
-    printf("  paddr=[%p..%p]\n", _start, _end - 1); 
+    printf("  paddr=[%p..%p]\n", _start, _end - 1);
     /* Unpack ELF images into memory. */
     load_images(&kernel_info, &user_info, 1, (uint32_t) &num_apps);
     if (num_apps != 2) {
@@ -404,7 +404,7 @@ void main(void)
 
     asm volatile(
         "csrw sptbr, %0\n"
-       : 
+       :
        : "r" (vm_mode | (uintptr_t)l1pt >> RISCV_PGSHIFT)
        :
    );
@@ -433,7 +433,7 @@ void boot_seconday_core(int hartid) {
 
     asm volatile(
         "csrw sptbr, %0\n"
-       : 
+       :
        : "r" (vm_mode | (uintptr_t)l1pt >> RISCV_PGSHIFT)
        :
    );
