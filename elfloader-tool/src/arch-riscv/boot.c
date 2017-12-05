@@ -319,8 +319,8 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 
     printf("&kernel_phys_end = %p\n", kernel_phys_end);
 
-    kernel_phys_end = 0x0000000080900000ull + kernel_phys_end - kernel_phys_start;
-    kernel_phys_start = 0x0000000080900000ull;
+    kernel_phys_end = 0x0000000080C00000ull + kernel_phys_end - kernel_phys_start;
+    kernel_phys_start = 0x0000000080C00000ull;
 
     next_phys_addr = load_elf("kernel", kernel_elf,
                               (paddr_t)kernel_phys_start, kernel_info);
