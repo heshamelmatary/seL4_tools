@@ -25,6 +25,8 @@ elseif(KernelSel4ArchAarch32 OR KernelSel4ArchArmHyp)
     set(LinkOFormat "elf32-littlearm")
 elseif(KernelSel4ArchAarch64)
     set(LinkOFormat "elf64-littleaarch64")
+elseif(KernelSel4ArchRISCV)
+    set(LinkOFormat "elf64-littleriscv")
 endif()
 
 # Function for declaring rules to build a cpio archive that can be linked
@@ -53,7 +55,7 @@ function(MakeCPIO output_name input_files)
         COMMAND ./cpio_script.sh
         COMMAND echo "SECTIONS { ._archive_cpio : ALIGN(4) { ${archive_symbol} = . ; *(.*) ; ${archive_symbol}_end = . ; } }"
             > link.ld
-        COMMAND ${CROSS_COMPILER_PREFIX}ld -T link.ld --oformat ${LinkOFormat} -r -b binary archive.cpio -o ${output_name}
+        COMMAND ${CROSS_COMPILER_PREFIX}ld -T link.ld --oformat ${LinkOFormat} -b binary archive.cpio -o ${output_name}
         BYPRODUCTS archive.cpio link.ld
         DEPENDS ${input_files} cpio_script.sh
         VERBATIM
@@ -113,6 +115,8 @@ function(DeclareRootserver rootservername)
             set(PlatformEntryAddr 0x90000000)
         elseif(KernelPlatformZynq7000)
             set(PlatformEntryAddr 0x10000000)
+        elseif(KernelPlatformSpike)
+            set(PlatformEntryAddr 0x0000000080200000)
         else()
             message(FATAL_ERROR "Unknown platform when generating image")
         endif()
@@ -138,7 +142,7 @@ function(DeclareRootserver rootservername)
             # before this operation to avoid polluting the symbol table with references
             # to the temporary directory.
             COMMAND ${CROSS_COMPILER_PREFIX}ld -T "${ElfloaderArchiveBinLds}" --oformat ${LinkOFormat}
-                -r -b binary ${CMAKE_CURRENT_BINARY_DIR}/elf_archive.cpio -o elf_archive.o
+                -b binary ${CMAKE_CURRENT_BINARY_DIR}/elf_archive.cpio -o elf_archive.o
             COMMAND
                 echo ${c_arguments} -I$<JOIN:$<TARGET_PROPERTY:Configuration,INTERFACE_INCLUDE_DIRECTORIES>,:-I>
                     -P -E -o linker.lds_pp -x c ${ElfloaderLinkerScript}

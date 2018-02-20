@@ -17,7 +17,7 @@ project(elfloader C ASM)
 set(configure_string "")
 
 config_choice(ElfloaderImage ELFLOADER_IMAGE "Boot image type"
-    "elf;ElfloaderImageELF;IMAGE_ELF;KernelArchARM"
+    "elf;ElfloaderImageELF;IMAGE_ELF;KernelArchARM;KernelArchRISCV"
     "binary;ElfloaderImageBinary;IMAGE_BINARY;KernelArchARM"
     "efi;ElfloaderImageEFI;IMAGE_EFI;KernelArchARM"
 )
@@ -49,16 +49,16 @@ config_option(ElfloaderErrata764369 ARM_ERRATA_764369
 
 add_config_library(elfloader "${configure_string}")
 
-add_compile_options(-D_XOPEN_SOURCE=700 -ffreestanding -Wall -Werror -W -Wextra)
+add_compile_options(-D_XOPEN_SOURCE=700 -ffreestanding -Wall -Wno-error -W -Wextra -nodefaultlibs -nostdlib)
 
 RequireFile(ElfloaderArchiveBinLds "archive.bin.lds" PATHS "${CMAKE_CURRENT_LIST_DIR}/src")
 RequireFile(ElfloaderLinkerScript "linker.lds" PATHS "${CMAKE_CURRENT_LIST_DIR}/src/arch-arm")
 
 file(GLOB files
-    src/*.c
     src/arch-${KernelArch}/*.c
+    src/arch-${KernelArch}/elf/*.c
+    src/arch-${KernelArch}/plat-${KernelPlatform}/*.c
     src/plat/${KernelPlatform}/*.c
-    src/binaries/elf/*.c
     src/arch-${KernelArch}/${KernelWordSize}/*.c
     src/arch-${KernelArch}/armv/${KernelArmArmV}/${KernelWordSize}/*.c
     src/plat/${KernelPlatform}/*.S
@@ -91,6 +91,7 @@ target_include_directories(elfloader PRIVATE
     "include"
     "include/plat/${KernelPlatform}"
     "include/arch-${KernelArch}"
+    "src/arch-${KernelArch}/plat-${KernelPlatform}"
     "include/arch-${KernelArch}/${KernelWordSize}"
     "include/arch-${KernelArch}/armv/${KernelArmArmV}"
     "include/arch-${KernelArch}/armv/${KernelArmArmV}/${KernelWordSize}"
