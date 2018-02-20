@@ -63,7 +63,12 @@ case "$PLAT" in
         fi
         ;;
     "spike")
-        FORMAT=elf64-littleriscv
+        if [ "$KERNEL_64" == "y" ]
+        then
+            FORMAT=elf64-littleriscv
+        else
+            FORMAT=elf32-littleriscv
+        fi
         ;;
     *)
         echo "$0: Unknown platform \"$PLAT\""
