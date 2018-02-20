@@ -21,11 +21,15 @@ typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef unsigned long long uint64_t;
 
-typedef uint64_t uintptr_t;
-typedef int64_t  intptr_t;
-typedef uint64_t size_t;
+typedef unsigned long uintptr_t;
+typedef long  intptr_t;
+typedef unsigned long size_t;
 
 #define UINT64_MAX (18446744073709551615ULL)
 
-#define __PTR_SIZE 64 
+#if __riscv_xlen == 32
+#define __PTR_SIZE 32
+#else
+#define __PTR_SIZE 64
+#endif
 #endif

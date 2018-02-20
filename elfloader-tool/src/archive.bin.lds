@@ -13,10 +13,9 @@
 /*
 OUTPUT_ARCH( "riscv" )
 OUTPUT_FORMAT("elf64-littleriscv")
-*/
-
 OUTPUT_FORMAT("elf64-littleriscv", "elf64-littleriscv", "elf64-littleriscv")
-OUTPUT_ARCH(riscv)
+*/
+/* OUTPUT_ARCH(riscv) */
 
 
 SECTIONS

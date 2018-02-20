@@ -20,13 +20,14 @@ SECTIONS
   /*--------------------------------------------------------------------*/
 
   /* Begining of code and text segment */
-  . = 0x0000000080200000;
+  . = 0x0000000080400000;
+  /* . = 0x00000000ff000000; *
   _ftext = .;
   PROVIDE( eprol = . );
 
 
   /* text: Program code section */
-  .text : 
+  .text :
   {
     *(.text)
   }
@@ -42,7 +43,7 @@ SECTIONS
   /* Start of initialized data segment */
   . = ALIGN(16);
    _fdata = .;
-  
+
   /* data: Writable data */
   .data :
   {
@@ -71,7 +72,7 @@ SECTIONS
   /* bss: Uninitialized writeable data section */
   . = .;
   _bss_start = .;
-  .bss : 
+  .bss :
   {
     *(.bss)
     *(.bss.*)
@@ -79,15 +80,15 @@ SECTIONS
   }
 
   /* rodata: Read-only data */
-  .rodata : 
+  .rodata :
   {
     *(.rodata)
     *(.rodata.*)
-      
+
     . = ALIGN(8);
     . = . + 4;
     _archive_start = .;
-      *(.archive_ar) 
+      *(.archive_ar)
     _archive_end = .;
   }
 

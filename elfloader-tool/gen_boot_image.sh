@@ -65,8 +65,13 @@ case "$PLAT" in
         FORMAT=elf32-littlearm
         ;;
     "spike")
-        ENTRY_ADDR=0x0000000080200000;
-        FORMAT=elf64-littleriscv
+        ENTRY_ADDR=0x0000000080400000;
+        if [ "$KERNEL_64" == "y" ]
+        then
+            FORMAT=elf64-littleriscv
+        else
+            FORMAT=elf32-littleriscv
+        fi
         ;;
     "imx31"|"omap3"|"am335x"|"omap4")
         ENTRY_ADDR=0x82000000
