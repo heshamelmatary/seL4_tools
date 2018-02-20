@@ -233,23 +233,26 @@ ifeq ($(CONFIG_ARM_CORTEX_A57),y)
 endif
 
 ifeq ($(CONFIG_ARCH_RISCV),y)
-  #ccflags-y += $(call cc-option,-m32)
-  # Crucial for ABI compatability, otherwise linking will fail
-  # asflags-y += -Wa,-m64
+   ccflags-y += $(call cc-option, -Wno-error)
    DEFINES += ARCH_RISCV
-   DEFINES += __KERNEL_64__
    export ARCH = riscv
    export PLAT = spike
-   export SEL4_ARCH = riscv
+
+ifeq ($(CONFIG_ARCH_RISCV_RV64),y)
+   DEFINES += RISCV64
+   DEFINES += __KERNEL_64__
    export KERNEL_64 = y
+   export SEL4_ARCH = riscv64
+   export TYPE_SUFFIX = 64
 endif
 
-ifeq ($(CONFIG_ARCH_RISCV64),y)
-   DEFINES += RISCV64
-   export ARCH = riscv
-   export PLAT=spike
-   export SEL4_ARCH = riscv
-   export KERNEL_64 = y
+ifeq ($(CONFIG_ARCH_RISCV_RV32),y)
+   DEFINES += RISCV32
+   DEFINES += __KERNEL_32__
+   export KERNEL_32 = y
+   export SEL4_ARCH = riscv32
+   export TYPE_SUFFIX = 32
+endif
 endif
 
 ifeq ($(CONFIG_PLAT_KZM),y)
