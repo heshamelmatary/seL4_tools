@@ -79,7 +79,7 @@
  * by the laws in force in New South Wales, Australia.
  */
 #include "elf.h"
-#include "../string.h"
+#include <printf.h>
 
 int
 elf64_checkFile(void *elfFile)

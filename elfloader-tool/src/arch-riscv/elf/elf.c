@@ -79,7 +79,6 @@
  * by the laws in force in New South Wales, Australia.
  */
 #include "elf.h"
-#include "../string.h"
 
 /*
  * Checks that elfFile points to a valid elf file. Returns 0 if the elf

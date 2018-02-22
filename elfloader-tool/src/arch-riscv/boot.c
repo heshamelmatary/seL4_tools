@@ -1,9 +1,6 @@
 #include <autoconf.h>
 
-#include "stdint.h"
-#include "stdio.h"
-#include "stdlib.h"
-#include "string.h"
+#include <types.h>
 #include "elf/elf.h"
 #include "elfloader.h"
 #include <platform.h>
@@ -11,6 +8,7 @@
 #include <cpio/cpio.h>
 
 #define MIN(a, b) (((a)<(b))?(a):(b))
+#define NULL ((void *) 0)
 
 #define PTE_TYPE_TABLE 0x00
 #define PTE_TYPE_TABLE_GLOBAL 0x02
@@ -59,7 +57,7 @@
 #define PTE_CREATE(PPN, TYPE) (((PPN) << PTE_PPN_SHIFT) | (TYPE) | PTE_V)
 #define PTE64_CREATE(PPN, TYPE) (unsigned long) (((uint32_t)PPN) | (TYPE) | PTE_V)
 #define PTE64_PT_CREATE(PT_BASE) \
-  (((uint64_t)(PT_BASE) / RISCV_PGSIZE) << 10 | PTE_TYPE_TABLE | PTE_V)
+  (((unsigned long)((unsigned long) PT_BASE) / RISCV_PGSIZE) << 10 | PTE_TYPE_TABLE | PTE_V)
 
 #define write_csr(reg, val) \
   asm volatile ("csrw " #reg ", %0" :: "r"(val))
@@ -105,31 +103,13 @@ map_kernel_window(struct image_info *kernel_info)
     paddr_t  phys;
     phys = SV39_VIRT_TO_VPN1(kernel_info->phys_region_start) & 0x1FF;
 
-
-/* This is a hack to run 32-bit code on SV39/RV64 machine. It maps the first 16
- * MiB for elfloader (1:1) mapping, and 256 MiB for kernel at 0xF0000000 at
- * 2 MiB granularity.
- */
-  /* Only 4 GiB need to be mapped, the first (first-level) PTE would refer to
-   * a second level page table to 1:1 map the elfloader (16Mib)
-   */
-   //l1pt[2] =  PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
-
-   printf("kernel_info->phys_region_start = %p\n", kernel_info->phys_region_start);
-   //for(i = 0; i < 128; i++)
-     //l2pt_elfloader[i] = PTE64_CREATE((uint64_t)(i << PTE64_PPN1_SHIFT), PTE_TYPE_SRWX);
-
-   printf("&l1pt = %llu\n", &l1pt);
    for(i = 0; i < 20; i++)
-#if __riscv_xlen == 32
-     /* Sv32 - 4 MiB mappings */
-     //l1pt[i] = PTE64_CREATE((uint64_t)(i << 20), PTE_TYPE_SRWX);
-     l1pt[513] = PTE64_CREATE((uint64_t)(513 << 20), PTE_TYPE_SRWX);
-#else
+ #if __riscv_xlen == 32
+      l1pt[513] = PTE64_CREATE((uint64_t)(513 << 20), PTE_TYPE_SRWX);
+ #else
      /* Sv39 - 1 GiB mappings */
      l1pt[i] = PTE64_CREATE((uint64_t)(i << 28), PTE_TYPE_SRWX);
-#endif
-     //l1pt[127] = PTE64_CREATE((uint64_t)(kernel_info->phys_region_start >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
+ #endif
 
 #if __riscv_xlen == 32
      l1pt[512] = PTE64_CREATE((uint32_t)(kernel_info->phys_region_start >> 12) << 10, PTE_TYPE_SRWX);
@@ -138,22 +118,13 @@ map_kernel_window(struct image_info *kernel_info)
      l1pt[256] = PTE64_CREATE((uint64_t)(kernel_info->phys_region_start >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
 #endif
 
-    l1pt[0] = PTE64_PT_CREATE((uint64_t)(&l2pt_elfloader));
+    l1pt[0] = PTE64_PT_CREATE((unsigned long)(&l2pt_elfloader));
 #if __riscv_xlen == 32
-    l2pt_elfloader[0] = PTE64_CREATE((uint64_t)(spike_dtb >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
+    l2pt_elfloader[0] = PTE64_CREATE((unsigned long)(spike_dtb >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
 #else
     l2pt_elfloader[0] = PTE64_PT_CREATE((uint64_t)(&l3pt_elfloader));
     l3pt_elfloader[0] = PTE64_CREATE((uint64_t)(spike_dtb >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
 #endif
-
-   /* 256 MiB kernel mapping (128 PTE * 2MiB per entry) */
-   //l1pt[510] = PTE64_CREATE((((uint64_t)kernel_info->phys_region_start) & 0xffffffffffff0000llu), PTE_TYPE_SRWX);
-   //l1pt[510] =  PTE64_PT_CREATE(&l2pt_kernel);
-   //for(i = 0; i < 128; i++, phys++)
-     /* The first two bits are always 0b11 since the MSB is 0xF */
-     //l2pt_kernel[i] = PTE64_CREATE((((uint64_t)kernel_info->phys_region_start) + (i << 21) >> 12) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
-
-  //set_csr(mstatus, (long)VM_SV32 << __builtin_ctzl(MSTATUS_VM));
 }
 
 /**********************************MMU ******************************************/
@@ -180,7 +151,6 @@ regions_overlap(uint32_t startA, uint32_t endA,
 static void ensure_phys_range_valid(paddr_t paddr_min, paddr_t paddr_max)
 {
     /* Ensure that the kernel physical load address doesn't overwrite us. */
-    printf("paddr_min = %p\n paddr_max = %p\n, start = %p\n end = %p\n", paddr_min, paddr_max, _start, _end);
     if (regions_overlap(paddr_min, paddr_max - 1,
         //                (uint64_t)_start, (uint64_t)_end - 1)) {
                         (uint64_t)_start, (uint64_t)_end - 1)) {
@@ -204,7 +174,6 @@ void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
     image_size = (uint64_t)(max_vaddr - min_vaddr);
     phys_virt_offset = dest_paddr - min_vaddr;
 
-    printf("dest_paddr = %p  image_size = %lu\n", dest_paddr, image_size);
     /* Zero out all memory in the region, as the ELF file may be sparse. */
     memset((char *)dest_paddr, 0, image_size);
 
@@ -223,10 +192,10 @@ void unpack_elf_to_paddr(void *elf, paddr_t dest_paddr)
         data_size = elf_getProgramHeaderFileSize(elf, i);
         data_offset = elf_getProgramHeaderOffset(elf, i);
 
-        printf("Loading data into physical memory = %p\n", dest_vaddr - phys_virt_offset);
         /* Load data into memory. */
-        memcpy((unsigned long)dest_vaddr + phys_virt_offset,
-               (unsigned long)elf + data_offset, data_size);
+        memcpy((void *) (dest_vaddr + phys_virt_offset),
+               (void *) (elf + data_offset),
+               data_size);
     }
 }
 
@@ -248,7 +217,6 @@ static paddr_t load_elf(const char *name, void *elf,
 
     /* Ensure our starting physical address is aligned. */
     if (!IS_ALIGNED(dest_paddr, PAGE_BITS)) {
-        printf("dest address = 0x%x \n", dest_paddr);
         printf("Attempting to load ELF at unaligned physical address!\n");
         abort();
     }
@@ -283,7 +251,7 @@ static paddr_t load_elf(const char *name, void *elf,
     ensure_phys_range_valid(dest_paddr, dest_paddr + image_size);
 
     /* Copy the data. */
-    unpack_elf_to_paddr(elf, (unsigned long) dest_paddr);
+    unpack_elf_to_paddr(elf, dest_paddr);
 
     /* Record information about the placement of the image. */
     info->phys_region_start = dest_paddr;
@@ -291,7 +259,6 @@ static paddr_t load_elf(const char *name, void *elf,
     info->virt_region_start = (vaddr_t)min_vaddr;
     info->virt_region_end = (vaddr_t)max_vaddr;
     info->virt_entry = (vaddr_t)elf_getEntryPoint(elf);
-    printf("info->virt_entry = %p\n", info->virt_entry);
     info->phys_virt_offset = (uint64_t)dest_paddr - (uint64_t)min_vaddr;
 
     /* Return address of next free physical frame. */
@@ -307,26 +274,12 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
 {
     int i;
     unsigned long kernel_phys_start, kernel_phys_end;
-    paddr_t next_phys_addr;
+    unsigned long next_phys_addr;
     const char *elf_filename;
     unsigned long unused;
 
-    struct Elf64_Header aligned_header __attribute__ ((aligned (4096)));
-
-    printf("_archive_start = %p \n", _archive_start);
-
     /* Load kernel. */
     void *kernel_elf = cpio_get_file(_archive_start, "kernel.elf", &unused);
-
-    printf("kernel_elf = %p \n", kernel_elf);
-    /* Check of the elf file is not aligned to 8 bytes */
-    /*
-    if(kernel_elf && 15)
-    {
-        printf("Copying elf header from %p address to 8 bytes aligned %p\n", kernel_elf, &aligned_header);
-        memcpy(&aligned_header, (struct Elf64_Header *) kernel_elf, sizeof (struct Elf64_Header));
-        kernel_elf = &aligned_header;
-    }*/
 
     if (kernel_elf == NULL) {
         printf("No kernel image present in archive!\n");
@@ -340,10 +293,8 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
     elf_getMemoryBounds(kernel_elf, 1,
                         &kernel_phys_start, &kernel_phys_end);
 
-    printf("&kernel_phys_end = %p\n", kernel_phys_end);
-
-    kernel_phys_end = (unsigned long) 0x00000000C0000000ull + (unsigned long) (kernel_phys_end - kernel_phys_start);
-    kernel_phys_start = (unsigned long) 0x00000000C0000000ull;
+    kernel_phys_end = (unsigned long long) 0x00000000C0000000ull + (unsigned long long) (kernel_phys_end - kernel_phys_start);
+    kernel_phys_start = (unsigned long long) 0x00000000C0000000ull;
 
     next_phys_addr = (unsigned long) load_elf("kernel", kernel_elf,
                               (paddr_t)kernel_phys_start, kernel_info);
@@ -354,31 +305,22 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
      * We assume (and check) that the kernel is the first file in the archive,
      * and then load the (n+1)'th file in the archive onto the (n)'th CPU.
      */
-    (void)cpio_get_entry(_archive_start, 0, &elf_filename, &unused);
+    cpio_get_entry(_archive_start, 0, &elf_filename, &unused);
+
     if (strcmp(elf_filename, "kernel.elf") != 0) {
         printf("Kernel image not first image in archive.\n");
         abort();
     }
     *num_images = 0;
-    //for (i = 1; i < max_user_images; i++) {
     for (i = 1; i < 2; i++) {
         /* Fetch info about the next ELF file in the archive. */
         void *user_elf = cpio_get_entry(_archive_start, i,
                                         &elf_filename, &unused);
 
-        /* Check of the elf file is not aligned to 8 bytes */
-        /*if(user_elf && 15)
-        {
-            printf("Copying elf header from %p address to 8 bytes aligned %p\n", user_elf, &aligned_header);
-            memcpy(&aligned_header, (struct Elf64_Header *) user_elf, sizeof (struct Elf64_Header));
-            user_elf = &aligned_header;
-        }*/
-
         if (user_elf == NULL) {
             break;
         }
 
-    printf("user_elf = %p \n", user_elf);
         /* Load the file into memory. */
         next_phys_addr = load_elf(elf_filename, user_elf,
                                   next_phys_addr, &user_info[*num_images]);
@@ -386,30 +328,11 @@ void load_images(struct image_info *kernel_info, struct image_info *user_info,
     }
 }
 
-   void (*sel4_kernel)(paddr_t ui_p_reg_start,
-                              paddr_t ui_p_reg_end, int32_t pv_offset, vaddr_t v_entry);
-
 #if __riscv_xlen == 32
 #define LW lw
 #else
 #define LW ld
 #endif
-static inline void enter_sel4_supervisor_mode(void)
-{
-
-    asm volatile ("mv a0, %0\t\n"
-                  "mv a1, %1\t\n"
-                  "mv a2, %2\t\n"
-                  "mv a3, %3\t\n"
-                  "li a4, %4\t\n"
-                  "csrw stvec, %5\t\n"
-                 :: "r" (user_info.phys_region_start),
-                    "r" (user_info.phys_region_end),
-                    "r" (user_info.phys_virt_offset),
-                    "r" (user_info.virt_entry),
-                    "i" (0),
-                    "r" (kernel_info.virt_entry):);
-}
 
 #if CONFIG_PT_LEVELS == 2
     uint64_t vm_mode = 0x1llu << 31;
@@ -426,13 +349,9 @@ void main(int hardid, unsigned long dtb)
 {
     puts("ELF-loader started on\n");
 
-      /* Print welcome message. */
-
-    //platform_init();
     spike_dtb = dtb;
 
     printf("  paddr=[%p..%p]\n", _start, _end - 1);
-    printf("dtb = %p\n", dtb);
     /* Unpack ELF images into memory. */
     load_images(&kernel_info, &user_info, 1, (uint32_t) &num_apps);
     if (num_apps != 2) {
@@ -440,42 +359,11 @@ void main(int hardid, unsigned long dtb)
         abort();
     }
 
-    printf("1: Kernel entry point is 0x%x\n", kernel_info.virt_entry);
     map_kernel_window(&kernel_info);
 
     printf("Jumping to kernel-image entry point...\n\n");
-    /* Uncomment the following line to get a weird behavior! */
-    //printf("2: Kernel entry point is 0x%x\n", kernel_info.virt_entry);
-
-    printf("user_info.phys_region_start = %p\n", user_info.phys_region_start);
-
-    sel4_kernel = (void *) kernel_info.virt_entry;
-    //enter_sel4_supervisor_mode();
-
-    //uint64_t vm_mode = 0x8llu << 60;
 
     asm volatile("sfence.vma");
-
-    //enter_sel4_supervisor_mode();
-
-/*
-    asm volatile ("mv a0, %0\t\n"
-                  "mv a1, %1\t\n"
-                  "mv a2, %2\t\n"
-                  "mv a3, %3\t\n"
-                  "li a4, %4\t\n"
-                  "csrw stvec, %5\n"
-
-                  "csrw sptbr, %6\n"
-                 :: "r" (user_info.phys_region_start),
-                    "r" (user_info.phys_region_end),
-                    "r" (user_info.phys_virt_offset),
-                    "r" (user_info.virt_entry),
-                    "i" (0),
-                    "rK" (kernel_info.virt_entry),
-                    "rK" (vm_mode | (uintptr_t) l1pt >> RISCV_PGSHIFT)
-                    :);
-*/
 
     asm volatile(
         "csrw sptbr, %0\n"
@@ -490,7 +378,7 @@ void main(int hardid, unsigned long dtb)
 
     ((init_kernel_t)kernel_info.virt_entry)(user_info.phys_region_start,
                                             user_info.phys_region_end, user_info.phys_virt_offset,
-                                            user_info.virt_entry, 0, dtb);
+                                            user_info.virt_entry, 0, 0);
 
   /* We should never get here. */
     printf("Kernel returned back to the elf-loader.\n");

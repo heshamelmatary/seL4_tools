@@ -81,7 +81,7 @@
 #ifndef __LIBELF_64_H__
 #define __LIBELF_64_H__
 
-#include "../stdint.h"
+#include <types.h>
 
 /*
  * File header

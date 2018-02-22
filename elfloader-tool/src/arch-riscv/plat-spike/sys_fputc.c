@@ -12,9 +12,8 @@
  * Platform-specific putchar implementation.
  */
 
-#include "../stdint.h"
-#include "../stdio.h"
-#include "platform.h"
+#include <types.h>
+#include <printf.h>
 #include "sbi.h"
 
 int

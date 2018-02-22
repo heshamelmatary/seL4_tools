@@ -79,7 +79,7 @@
  * by the laws in force in New South Wales, Australia.
  */
 #include "elf.h"
-#include "../string.h"
+#include <printf.h>
 
 int
 elf32_checkFile(struct Elf32_Header *file)

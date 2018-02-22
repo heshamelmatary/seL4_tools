@@ -81,7 +81,7 @@
 #ifndef __ELF_ELF_32_H__
 #define __ELF_ELF_32_H__
 
-#include "../stdint.h"
+#include <types.h>
 
 /*
  * File header

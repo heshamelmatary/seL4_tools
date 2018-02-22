@@ -1,6 +1,7 @@
 #ifndef _ASM_RISCV_SBI_H
 #define _ASM_RISCV_SBI_H
 
+#include <types.h>
 //#include <linux/types.h>
 
 #define SBI_SET_TIMER 0
