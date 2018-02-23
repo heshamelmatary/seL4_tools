@@ -26,9 +26,14 @@ ASMFILES := $(patsubst $(SOURCE_DIR)/%,%,$(SOURCE_DIR)/src/arch-$(ARCH)/crt0.S)
 NK_CFLAGS += -D_XOPEN_SOURCE=700
 
 ifeq (${ARCH}, riscv)
-CFLAGS   = -nodefaultlibs -mcmodel=medany -nostdinc
+CFLAGS   += -nodefaultlibs -mcmodel=medany -nostdinc
+ifeq (${KERNEL_32}, y)
+CFLAGS   += -march=rv32ima -mabi=ilp32
 else
-CFLAGS   = -nodefaultlibs
+CFLAGS   += -march=rv64imac -mabi=lp64
+endif
+else
+CFLAGS   += -nodefaultlibs
 endif
 
 #ASFLAGS   += -nodefaultlibs

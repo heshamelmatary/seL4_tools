@@ -239,6 +239,8 @@ ifeq ($(CONFIG_ARCH_RISCV),y)
    export PLAT = spike
 
 ifeq ($(CONFIG_ARCH_RISCV_RV64),y)
+   ccflags-y += $(call cc-option, -march=rv64imac)
+   ccflags-y += $(call cc-option, -mabi=lp64)
    DEFINES += RISCV64
    DEFINES += __KERNEL_64__
    export KERNEL_64 = y
@@ -247,6 +249,8 @@ ifeq ($(CONFIG_ARCH_RISCV_RV64),y)
 endif
 
 ifeq ($(CONFIG_ARCH_RISCV_RV32),y)
+   ccflags-y += $(call cc-option, -march=rv32ima)
+   ccflags-y += $(call cc-option, -mabi=ilp32)
    DEFINES += RISCV32
    DEFINES += __KERNEL_32__
    export KERNEL_32 = y
