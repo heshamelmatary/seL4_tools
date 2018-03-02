@@ -8,6 +8,12 @@
 
 _start:
 
+.option push
+.option norelax
+1:auipc gp, %pcrel_hi(__global_pointer$)
+  addi  gp, gp, %pcrel_lo(1b)
+.option pop
+
   /* mhartid value is in a0 */
   /* la sp, (elfo loader_stack_alloc + BIT(12)) */
   li      sp, BIT(12)
@@ -17,9 +23,8 @@ _start:
 
   bne x0, a0, boot_seconday_core
 
-  la gp, __global_pointer$
   la s0, main
-  jr s0  
+  jr s0
 
 .align 8
 .space 4096
