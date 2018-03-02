@@ -28,7 +28,7 @@ NK_CFLAGS += -D_XOPEN_SOURCE=700
 ifeq (${ARCH}, riscv)
 CFLAGS   += -nodefaultlibs -mcmodel=medany -nostdinc
 ifeq (${KERNEL_32}, y)
-CFLAGS   += -march=rv32ima -mabi=ilp32
+CFLAGS   += -march=rv32ima -mabi=ilp32 -fno-pic
 else
 CFLAGS   += -march=rv64imac -mabi=lp64
 endif
