@@ -44,11 +44,20 @@ SECTIONS
   . = ALIGN(16);
    _fdata = .;
 
+  /* Start of data section */
+
+    _sdata = .;
+   .sdata : {
+    __global_pointer$ = . + 0x800;
+    *(.sdata*)
+  }
+    .srodata : {
+    *(.srodata*)
+  }
+
   /* data: Writable data */
   .data :
   {
-     __global_pointer$ = . + 0x800;
-    *(.sdata*)
     *(.data)
     *(.data.*)
   }
