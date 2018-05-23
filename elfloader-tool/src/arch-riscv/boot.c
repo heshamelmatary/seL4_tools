@@ -41,6 +41,9 @@ struct image_info kernel_info;
 struct image_info user_info;
 
 unsigned long l1pt[PTES_PER_PT] __attribute__((aligned(4096)));
+#ifdef CONFIG_PLAT_FREEDOMU
+unsigned long l2pt[PTES_PER_PT] __attribute__((aligned(4096)));
+#endif
 char elfloader_stack_alloc[BIT(CONFIG_KERNEL_STACK_BITS)];
 
 void
@@ -62,7 +65,17 @@ map_kernel_window(struct image_info *kernel_info)
 #if __riscv_xlen == 32
          l1pt[i] = PTE64_CREATE((uint32_t)((kernel_info->phys_region_start >> 12) + page) << 10, PTE_TYPE_SRWX);
 #else
-         l1pt[i] = PTE64_CREATE((uint64_t)((kernel_info->phys_region_start >> 12) + page) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
+#ifdef CONFIG_PLAT_FREEDOMU
+       uint32_t j = (kernel_info->virt_region_start >> ((CONFIG_PT_LEVELS - 2) * (9) + 12)) % PTES_PER_PT;
+
+	     l1pt[i] = PTE64_PT_CREATE(&l2pt);
+
+	     for (int page_small = 0; j < PTES_PER_PT; j++, page_small++) {
+	         l2pt[j] = PTE64_CREATE((uint64_t)((kernel_info->phys_region_start >> 12) + page_small) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
+	     }
+#else
+       l1pt[i] = PTE64_CREATE((uint64_t)((kernel_info->phys_region_start >> 12) + page) << PTE64_PPN0_SHIFT, PTE_TYPE_SRWX);
+#endif
 #endif
     }
 }

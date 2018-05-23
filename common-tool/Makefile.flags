@@ -282,6 +282,13 @@ ifeq ($(CONFIG_PLAT_SPIKE),y)
 	export PLAT = spike
 endif
 
+ifeq ($(CONFIG_PLAT_FREEDOMU),y)
+	DEFINES += SPIKE
+	DEFINES += PLAT_SPIKE
+	DEFINES += PLAT_FREEDOMU
+	export PLAT = spike
+endif
+
 ifeq ($(CONFIG_PLAT_REALVIEW),y)
 	DEFINES += REALVIEW
 	export PLAT=realview

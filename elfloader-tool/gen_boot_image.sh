@@ -65,7 +65,7 @@ case "$PLAT" in
         FORMAT=elf32-littlearm
         ;;
     "spike")
-        ENTRY_ADDR=0x0000000080400000;
+        ENTRY_ADDR=0x0000000080200000;
         if [ "$KERNEL_64" == "y" ]
         then
             FORMAT=elf64-littleriscv
