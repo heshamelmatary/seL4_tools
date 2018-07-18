@@ -9,6 +9,17 @@
  *
  * @TAG(DATA61_GPL)
  */
+
+/*
+ * Copyright (c) 2018, Hesham Almatary <Hesham.Almatary@cl.cam.ac.uk>
+ * All rights reserved.
+ *
+ * This software was was developed in part by SRI International and the University of
+ * Cambridge Computer Laboratory (Department of Computer Science and
+ * Technology) under DARPA contract HR0011-18-C-0016 ("ECATS"), as part of the
+ * DARPA SSITH research programme.
+ */
+
 #include <autoconf.h>
 
 #include <types.h>
